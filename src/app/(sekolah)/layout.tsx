@@ -20,6 +20,7 @@ const NAV: (NavItem & { roles?: Role[] })[] = [
   { href: "/pengaturan", label: "Penyiapan", roles: ["ADMIN"] },
   { href: "/data-dasar", label: "Data Dasar", roles: ["ADMIN", "PETUGAS"] },
   { href: "/pengguna", label: "Pengguna", roles: ["ADMIN"] },
+  { href: "/impor", label: "Impor Excel", roles: ["ADMIN", "PETUGAS"] },
   { href: "/log", label: "Log Aktivitas", roles: ["ADMIN", "KEPSEK"] },
 ];
 

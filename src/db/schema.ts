@@ -1084,6 +1084,26 @@ export const maintenances = pgTable(
   ],
 );
 
+// ─────────────────────────────────────────────────────────── impor Excel
+
+/** Hasil baca berkas impor (pratinjau) — dikonfirmasi lalu diproses; dihapus otomatis setelah 2 hari */
+export const importJobs = pgTable(
+  "import_jobs",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    kind: varchar("kind", { length: 20 }).notNull(),
+    fileName: text("file_name").notNull(),
+    /** Baris ternormalisasi + hasil validasi: [{ row, data, errors[] }] */
+    rows: jsonb("rows").$type<{ row: number; data: Record<string, string>; errors: string[] }[]>().notNull(),
+    status: varchar("status", { length: 12 }).notNull().default("PRATINJAU"),
+    result: jsonb("result").$type<Record<string, unknown>>(),
+    createdBy: uuid("created_by").notNull(),
+    ...timestamps(),
+  },
+  (t) => [index("import_jobs_school_idx").on(t.schoolId, t.createdAt)],
+);
+
 /** Tabel ber-school_id yang wajib dilindungi RLS (dipakai migrasi & tes isolasi) */
 export const RLS_TABLES = [
   "school_settings",
@@ -1124,4 +1144,5 @@ export const RLS_TABLES = [
   "disposals",
   "disposal_lines",
   "maintenances",
+  "import_jobs",
 ] as const;

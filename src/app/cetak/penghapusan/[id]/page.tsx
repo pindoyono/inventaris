@@ -14,8 +14,9 @@ import { Halaman, Identitas, Judul, Kop, Tabel, Ttd } from "@/components/cetak/p
 export const metadata: Metadata = { title: "Cetak Usulan Penghapusan" };
 
 /** Surat usulan + daftar barang usulan penghapusan (Permendagri 19/2016 jo. 7/2024) */
-export default async function CetakPenghapusan({ params }: PageProps<"/cetak/penghapusan/[id]">) {
+export default async function CetakPenghapusan({ params, searchParams }: PageProps<"/cetak/penghapusan/[id]">) {
   const { id } = await params;
+  const sp = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const s = await pageSchoolUser(["ADMIN", "PETUGAS", "KEPSEK", "VERIFIKATOR"]);
   const data = await withSchool(s.schoolId, async (tx) => {
@@ -30,6 +31,48 @@ export default async function CetakPenghapusan({ params }: PageProps<"/cetak/pen
   const tgl = tanggalPanjang(d.letterDate ?? d.date);
   const kepada = c.parts.ownershipCode === "11" ? `Gubernur ${c.provinsi}` : `Bupati/Wali Kota ${c.kota}`;
   const reasons = [...new Set(lines.map((x) => DISPOSAL_REASON_LABEL[x.l.reason].toLowerCase()))].join(", ");
+
+  if (sp.format === "rkbmd") {
+    // Permendagri 7/2024 Lampiran A.5 — Format RKBMD untuk Penghapusan oleh Kuasa Pengguna Barang
+    const ta = typeof sp.tahun === "string" && /^\d{4}$/.test(sp.tahun) ? sp.tahun : String(Number(d.date.slice(0, 4)) + 1);
+    // Baris digabung per kode barang + nama + spesifikasi + alasan (kolom "Jumlah Barang")
+    const groups = new Map<string, typeof lines>();
+    for (const x of lines) {
+      const k = [x.a.bmdCode, x.a.name, x.a.brand ?? "", x.l.reason].join("|");
+      groups.set(k, [...(groups.get(k) ?? []), x]);
+    }
+    const rows = [...groups.values()];
+    return (
+      <Halaman judul="RKBMD Rencana Penghapusan" ket="Permendagri 7/2024 — Format RKBMD untuk Penghapusan oleh Kuasa Pengguna Barang" orientasi="lanskap" rapat>
+        <div className="judul" style={{ marginBottom: "3mm" }}>
+          <div className="sub">Rencana Kebutuhan Barang Milik Daerah</div>
+          <div className="sub">(Rencana Penghapusan)</div>
+          <div className="sub">Kuasa Pengguna Barang {c.school.name}</div>
+          <div className="sub">Tahun Anggaran {ta}</div>
+        </div>
+        <Identitas rows={[["Pengguna Barang", c.dinasName], ["Kab/Kota", c.parts.ownershipCode === "12" ? c.kota : "-"], ["Provinsi", c.provinsi]]} />
+        <Tabel cols={9} head={<tr><th>No</th><th>Kode Barang</th><th>Nama Barang</th><th>Spesifikasi Nama Barang</th><th>NIBAR</th><th>Jumlah Barang</th><th>Nilai Perolehan (Rp)</th><th>Alasan Rencana Penghapusan</th><th>Ket.</th></tr>}
+          foot={<tr className="jumlah"><td colSpan={6} className="angka">JUMLAH</td><td className="angka">{fmtRp(total)}</td><td colSpan={2} /></tr>}>
+          {rows.map((g, i) => {
+            const x = g[0];
+            const regs = g.map((y) => String(y.a.regNo).padStart(6, "0")).join(", ");
+            return (
+              <tr key={x.l.id}>
+                <td className="tengah">{i + 1}</td><td className="kode">{x.a.bmdCode}</td><td>{x.a.name}</td>
+                <td>{[x.a.brand, x.a.attrs.ukuran, x.a.attrs.bahan].filter(Boolean).join(", ") || "-"}</td>
+                <td className="kode" style={{ whiteSpace: "normal" }}>-</td>
+                <td className="tengah">{g.length} unit</td><td className="angka">{fmtRp(g.reduce((a2, y) => a2 + parseDec(y.a.acqPrice), 0n))}</td>
+                <td>{DISPOSAL_REASON_LABEL[x.l.reason]}</td><td>No. register {regs}{x.l.policeLetter ? `; surat polisi ${x.l.policeLetter}` : ""}</td>
+              </tr>
+            );
+          })}
+        </Tabel>
+        <p className="catatan">NIBAR (nomor induk barang) diisi oleh Pengelola/Pengguna Barang bila sudah ditetapkan; kolom keterangan memuat nomor register sekolah.</p>
+        <Ttd c={c} tanggal={tgl} cols={[{ jabatan: <>Kuasa Pengguna Barang<br />Kepala {c.school.name}</>, signer: c.kepsek }]} />
+      </Halaman>
+    );
+  }
+
   return (
     <>
       <Halaman judul="Surat Usulan Penghapusan" ket="Permendagri 19/2016 jo. 7/2024 — permohonan penghapusan BMD">

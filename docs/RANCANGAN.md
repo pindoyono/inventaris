@@ -365,3 +365,9 @@ Bersih & minimalis (off-white, slate, emerald), mobile-first untuk Petugas (scan
    - lihat **KIB/KIR** yang pernah diterbitkan Dinas/BPKAD untuk sekolah (baris "No. Kode Lokasi"); atau
    - tanyakan ke **pengurus barang Dinas Pendidikan dan Kebudayaan Provinsi Kalimantan Utara** atau **BPKAD Provinsi** (aplikasi BMD Pemda).
 5. **[TINDAK LANJUT] Persetujuan contoh format cetak** (§8) — sedang ditinjau; perubahan menyusul sebelum fase yang memakainya.
+
+### 15.x Catatan sumber format cetak (7 Oktober 2026)
+- PDF Permendagri 47/2021 yang tersedia hanya memuat **uraian** lampiran (hlm. 44–107 berupa gambar, dibaca dengan OCR); **tabel/formulir format II.I.x, II.K.x tidak termasuk**. Format cetak di aplikasi disusun dari unsur yang disebut dalam uraian + praktik Pemda, lalu disetujui pengguna.
+- PDF Permendagri 19/2016 berakhir di Pasal 515 **tanpa lampiran** (Pasal 513 menyebut "Format penghapusan barang milik daerah" ada di Lampiran).
+- Permendagri 7/2024 memuat format resmi **RKBMD untuk Penghapusan oleh Kuasa Pengguna Barang** (Lampiran A.5, hlm. 94) — sudah diterapkan apa adanya (`/cetak/penghapusan/[id]?format=rkbmd`).
+- Tindak lanjut: bila lampiran format lengkap kedua Permendagri diperoleh (JDIH Kemendagri / BPKAD), cocokkan kolom per kolom.

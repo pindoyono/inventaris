@@ -89,6 +89,7 @@ export default async function UsulanDetailPage({ params, searchParams }: PagePro
         lines={lines.map(({ l, a }) => ({ id: l.id, label: `${a.name} · ${String(a.regNo).padStart(6, "0")}` }))}
       />
       {d.number && <a href={`/cetak/penghapusan/${d.id}`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak surat usulan & daftar barang</a>}
+      {d.number && <a href={`/cetak/penghapusan/${d.id}?format=rkbmd`} target="_blank" rel="noreferrer" className="ml-2 inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak RKBMD rencana penghapusan (Permendagri 7/2024)</a>}
     </div>
   );
 }
