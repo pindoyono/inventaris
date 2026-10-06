@@ -30,11 +30,29 @@ export async function saveImage(schoolId: string, baseName: string, file: File, 
   return name;
 }
 
+/** Simpan dokumen pendukung (PDF atau gambar), mis. scan SK. Maks 3 MB (batas unggah nginx 4 MB). */
+export async function saveDocument(schoolId: string, baseName: string, file: File, maxBytes = 3 * 1024 * 1024) {
+  if (file.size === 0) throw new FileError("Berkas kosong");
+  if (file.size > maxBytes) throw new FileError(`Ukuran maksimal ${Math.round(maxBytes / 1024 / 1024)} MB`);
+  const buf = Buffer.from(await file.arrayBuffer());
+  const isPdf = buf.toString("ascii", 0, 5) === "%PDF-";
+  if (!isPdf) return saveImage(schoolId, baseName, file, maxBytes);
+  const dir = schoolDir(schoolId);
+  await mkdir(dir, { recursive: true, mode: 0o750 });
+  const name = `${baseName}-${Date.now().toString(36)}.pdf`;
+  const tmp = path.join(dir, `.${name}.tmp`);
+  await writeFile(tmp, buf, { mode: 0o640 });
+  await rename(tmp, path.join(dir, name));
+  return name;
+}
+
+const TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp", pdf: "application/pdf" };
+
 export async function readSchoolFile(schoolId: string, name: string) {
-  if (!/^[a-z0-9-]+\.(png|jpg|webp)$/.test(name)) return null;
+  if (!/^[a-z0-9-]+\.(png|jpg|webp|pdf)$/.test(name)) return null;
   try {
     const data = await readFile(path.join(schoolDir(schoolId), name));
-    const type = IMAGE_SIGNATURES.find((s) => s.ext === name.split(".").pop())!.type;
+    const type = TYPES[name.split(".").pop()!];
     return { data, type };
   } catch {
     return null;

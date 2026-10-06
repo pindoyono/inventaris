@@ -80,7 +80,7 @@ const optUuid = z.union([z.literal(""), z.null(), z.uuid()]).optional().transfor
 const optText = (n: number) => z.string().trim().max(n).optional().nullable().transform((v) => v || null);
 const docSchema = z.object({
   id: z.union([z.literal(""), z.uuid()]).optional(),
-  kind: z.enum(["SALDO_AWAL", "PENERIMAAN", "PENYALURAN", "MUTASI"]),
+  kind: z.enum(["SALDO_AWAL", "PENERIMAAN", "PENYALURAN", "MUTASI", "RUSAK_USANG"]),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Isi tanggal"),
   warehouseId: z.uuid("Pilih gudang"),
   toWarehouseId: optUuid,

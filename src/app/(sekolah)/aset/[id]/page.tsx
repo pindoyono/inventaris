@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { alias } from "drizzle-orm/pg-core";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { assetEvents, assets, bmdCodes, fundingComponents, fundingSources, localBmdCodes, rooms, units, vendors } from "@/db/schema";
+import { assetEvents, assets, bmdCodes, fundingComponents, fundingSources, localBmdCodes, maintenances, rooms, units, vendors } from "@/db/schema";
 import { withSchool } from "@/lib/tenant";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { hasAnyRole } from "@/lib/roles";
@@ -47,8 +47,9 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
       .where(eq(assetEvents.assetId, id))
       .orderBy(desc(assetEvents.id));
     const roomOpts = await tx.select({ id: rooms.id, name: rooms.name }).from(rooms).orderBy(asc(rooms.name));
+    const maint = await tx.select().from(maintenances).where(eq(maintenances.assetId, id)).orderBy(desc(maintenances.startDate));
     const [loc] = await tx.select({ name: localBmdCodes.name }).from(localBmdCodes).where(eq(localBmdCodes.code, r.a.bmdCode));
-    return { ...r, events, roomOpts, parts: await loadRegisterParts(tx, s.schoolId), localName: loc?.name };
+    return { ...r, events, roomOpts, maint, parts: await loadRegisterParts(tx, s.schoolId), localName: loc?.name };
   });
   if (!data) notFound();
   const { a, parts } = data;
@@ -83,6 +84,23 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
               {a.note && (<><dt className="text-slate-500">Catatan</dt><dd>{a.note}</dd></>)}
             </dl>
             {canEdit && <Link href={`/aset/${a.id}/ubah`} className="mt-3 inline-block text-teal-700 hover:underline">Ubah data barang</Link>}
+          </section>
+
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="font-semibold">Kartu pemeliharaan</h2>
+              {canEdit && a.status === "DIGUNAKAN" && <Link href={`/audit/pemeliharaan/baru?aset=${a.id}`} className="text-sm text-teal-700 hover:underline">+ Catat pemeliharaan</Link>}
+            </div>
+            <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white text-sm">
+              {data.maint.length === 0 && <li className="px-4 py-2 text-slate-500">Belum ada.</li>}
+              {data.maint.map((m) => (
+                <li key={m.id} className="flex flex-wrap justify-between gap-2 px-4 py-2">
+                  <span>{m.description}{m.status === "BERJALAN" && <span className="ml-2 rounded bg-amber-100 px-1.5 text-xs text-amber-800">sedang dikerjakan</span>}
+                    <span className="block text-xs text-slate-500">{{ RUTIN: "Rutin", PERBAIKAN: "Perbaikan", PENINGKATAN: "Peningkatan" }[m.kind]}{m.executor ? ` · ${m.executor}` : ""} · {CONDITION_LABEL[m.conditionBefore]}{m.conditionAfter ? ` → ${CONDITION_LABEL[m.conditionAfter]}` : ""}</span></span>
+                  <span className="text-slate-500">{fmtDate(m.startDate)} · Rp{fmtRp(m.cost)}</span>
+                </li>
+              ))}
+            </ul>
           </section>
 
           <section>

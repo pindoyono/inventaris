@@ -7,8 +7,8 @@ export const KIND_LABEL = {
   PENYESUAIAN_KURANG: "Penyesuaian (kurang)",
   RUSAK_USANG: "Rusak/usang",
 } as const;
-export type FormKind = "SALDO_AWAL" | "PENERIMAAN" | "PENYALURAN" | "MUTASI";
-export const FORM_KINDS: FormKind[] = ["SALDO_AWAL", "PENERIMAAN", "PENYALURAN", "MUTASI"];
+export type FormKind = "SALDO_AWAL" | "PENERIMAAN" | "PENYALURAN" | "MUTASI" | "RUSAK_USANG";
+export const FORM_KINDS: FormKind[] = ["SALDO_AWAL", "PENERIMAAN", "PENYALURAN", "MUTASI", "RUSAK_USANG"];
 export const STATUS_LABEL = { DRAF: "Draf", DIPOSTING: "Diposting", DIBATALKAN: "Dibatalkan" } as const;
 export const STATUS_CLASS = {
   DRAF: "bg-amber-100 text-amber-800",
@@ -27,4 +27,5 @@ export const KIND_HINT: Record<FormKind, string> = {
   PENERIMAAN: "Barang persediaan masuk dari pembelian, hibah, atau perolehan lain.",
   PENYALURAN: "Barang keluar ke unit pemakai. Nilai dihitung otomatis FIFO (batch tertua lebih dulu).",
   MUTASI: "Pindah barang antar gudang sekolah; batch pindah dengan tanggal dan harga aslinya.",
+  RUSAK_USANG: "Berita Acara Perubahan Fisik: persediaan rusak berat/usang dikeluarkan dari stok (FIFO) ke daftar persediaan rusak/usang (Permendagri 47/2021 Ps. 38). Jelaskan sebabnya di catatan.",
 };

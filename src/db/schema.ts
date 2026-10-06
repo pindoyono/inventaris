@@ -65,6 +65,12 @@ export const requestStatus = pgEnum("request_status", [
   "DIBATALKAN",
 ]);
 export const loanStatus = pgEnum("loan_status", ["DIAJUKAN", "DIPINJAM", "SELESAI", "DITOLAK", "DIBATALKAN"]);
+export const opnameStatus = pgEnum("opname_status", ["DRAF", "DIAJUKAN", "DISETUJUI", "DIBATALKAN"]);
+export const inventoryStatus = pgEnum("inventory_status", ["DRAF", "SELESAI", "DIBATALKAN"]);
+export const disposalStatus = pgEnum("disposal_status", ["DRAF", "DIAJUKAN", "DIKIRIM", "SELESAI", "DITOLAK", "DIBATALKAN"]);
+export const disposalReason = pgEnum("disposal_reason", ["RUSAK_BERAT", "USANG", "KECURIAN", "HILANG", "TERBAKAR_SUSUT", "KAHAR", "INVENTARISASI"]);
+export const maintenanceKind = pgEnum("maintenance_kind", ["RUTIN", "PERBAIKAN", "PENINGKATAN"]);
+export const maintenanceStatus = pgEnum("maintenance_status", ["BERJALAN", "SELESAI"]);
 /** Jenis dokumen stok persediaan */
 export const stockDocKind = pgEnum("stock_doc_kind", [
   "SALDO_AWAL",
@@ -526,6 +532,8 @@ export const stockDocs = pgTable(
     note: text("note"),
     /** Nota permintaan asal (penyaluran hasil permintaan unit) */
     requestId: uuid("request_id"),
+    /** Stock opname asal (dokumen penyesuaian hasil opname) */
+    opnameId: uuid("opname_id"),
     createdBy: uuid("created_by"),
     postedBy: uuid("posted_by"),
     postedAt: timestamp("posted_at", { withTimezone: true }),
@@ -545,6 +553,7 @@ export const stockDocs = pgTable(
     sameSchool(t, "fundingSourceId", fundingSources),
     sameSchool(t, "fundingComponentId", fundingComponents),
     sameSchool(t, "requestId", supplyRequests),
+    // opname_id tanpa FK (hindari rujukan melingkar; diisi sistem saat menyetujui opname)
   ],
 );
 
@@ -895,6 +904,186 @@ export const notifications = pgTable(
   (t) => [index("notifications_user_idx").on(t.schoolId, t.userId, t.id), sameSchool(t, "userId", users, "cascade")],
 );
 
+// ─────────────────────────────────────────────────────────── audit: opname, inventarisasi, penghapusan, pemeliharaan
+
+/** Stock opname persediaan per gudang (Permendagri 47/2021 Ps. 39). Gudang dibekukan selama DRAF/DIAJUKAN. */
+export const stockOpnames = pgTable(
+  "stock_opnames",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    number: varchar("number", { length: 40 }).notNull(),
+    warehouseId: uuid("warehouse_id").notNull(),
+    date: date("date").notNull(),
+    status: opnameStatus("status").notNull().default("DRAF"),
+    note: text("note"),
+    createdBy: uuid("created_by").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    approvedBy: uuid("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    lastReason: text("last_reason"),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("stock_opnames_school_id_key").on(t.schoolId, t.id),
+    uniqueIndex("stock_opnames_school_number_key").on(t.schoolId, t.number),
+    // Satu sesi aktif per gudang
+    uniqueIndex("stock_opnames_active_wh_key").on(t.warehouseId).where(sql`${t.status} in ('DRAF','DIAJUKAN')`),
+    sameSchool(t, "warehouseId", warehouses),
+  ],
+);
+
+export const stockOpnameLines = pgTable(
+  "stock_opname_lines",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    opnameId: uuid("opname_id").notNull(),
+    itemId: uuid("item_id").notNull(),
+    systemQty: qty("system_qty").notNull(),
+    /** Hitungan fisik barang baik; null = belum dihitung */
+    physicalQty: qty("physical_qty"),
+    /** Ditemukan rusak berat/usang → keluar ke daftar persediaan rusak/usang */
+    damagedQty: qty("damaged_qty").notNull().default("0"),
+    /** Harga satuan untuk kelebihan (default: harga lot terakhir) */
+    surplusPrice: money("surplus_price"),
+    note: text("note"),
+  },
+  (t) => [
+    uniqueIndex("stock_opname_lines_item_key").on(t.opnameId, t.itemId),
+    sameSchool(t, "opnameId", stockOpnames, "cascade"),
+    sameSchool(t, "itemId", supplyItems),
+    check("stock_opname_lines_qty_check", sql`${t.systemQty} >= 0 and (${t.physicalQty} is null or ${t.physicalQty} >= 0) and ${t.damagedQty} >= 0`),
+  ],
+);
+
+/** Inventarisasi aset per ruangan: cocokkan KIR dengan fisik */
+export const assetInventories = pgTable(
+  "asset_inventories",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    number: varchar("number", { length: 40 }).notNull(),
+    roomId: uuid("room_id").notNull(),
+    date: date("date").notNull(),
+    status: inventoryStatus("status").notNull().default("DRAF"),
+    note: text("note"),
+    createdBy: uuid("created_by").notNull(),
+    finishedBy: uuid("finished_by"),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("asset_inventories_school_id_key").on(t.schoolId, t.id),
+    uniqueIndex("asset_inventories_school_number_key").on(t.schoolId, t.number),
+    sameSchool(t, "roomId", rooms),
+  ],
+);
+
+export const assetInventoryLines = pgTable(
+  "asset_inventory_lines",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    inventoryId: uuid("inventory_id").notNull(),
+    /** Aset tercatat di ruangan; null = barang ditemukan tetapi belum tercatat */
+    assetId: uuid("asset_id"),
+    conditionRecorded: assetCondition("condition_recorded"),
+    /** null = belum diperiksa */
+    found: boolean("found"),
+    conditionFound: assetCondition("condition_found"),
+    /** Barang belum tercatat: uraian & jumlah */
+    extraName: text("extra_name"),
+    extraQty: integer("extra_qty"),
+    note: text("note"),
+  },
+  (t) => [
+    uniqueIndex("asset_inventory_lines_asset_key").on(t.inventoryId, t.assetId),
+    sameSchool(t, "inventoryId", assetInventories, "cascade"),
+    sameSchool(t, "assetId", assets),
+    check("asset_inventory_lines_kind_check", sql`(${t.assetId} is not null) <> (${t.extraName} is not null)`),
+  ],
+);
+
+/** Usulan penghapusan aset — diputus kepala daerah (Permendagri 19/2016 jo. 7/2024) */
+export const disposals = pgTable(
+  "disposals",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    number: varchar("number", { length: 40 }),
+    status: disposalStatus("status").notNull().default("DRAF"),
+    date: date("date").notNull(),
+    note: text("note"),
+    createdBy: uuid("created_by").notNull(),
+    submittedBy: uuid("submitted_by"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    /** Surat usulan ke Dinas/BPKAD */
+    letterNumber: text("letter_number"),
+    letterDate: date("letter_date"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    /** SK kepala daerah */
+    skNumber: text("sk_number"),
+    skDate: date("sk_date"),
+    skFile: text("sk_file"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    lastReason: text("last_reason"),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex("disposals_school_id_key").on(t.schoolId, t.id), uniqueIndex("disposals_school_number_key").on(t.schoolId, t.number)],
+);
+
+export const disposalLines = pgTable(
+  "disposal_lines",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    disposalId: uuid("disposal_id").notNull(),
+    assetId: uuid("asset_id").notNull(),
+    reason: disposalReason("reason").notNull(),
+    /** Wajib bila kecurian: nomor surat keterangan kepolisian */
+    policeLetter: text("police_letter"),
+    note: text("note"),
+    /** Status aset sebelum diusulkan (dipulihkan bila ditolak/batal) */
+    prevStatus: assetStatus("prev_status"),
+  },
+  (t) => [
+    uniqueIndex("disposal_lines_asset_key").on(t.disposalId, t.assetId),
+    sameSchool(t, "disposalId", disposals, "cascade"),
+    sameSchool(t, "assetId", assets),
+  ],
+);
+
+/** Kartu pemeliharaan per aset (Permendagri 47/2021 Ps. 40) */
+export const maintenances = pgTable(
+  "maintenances",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    assetId: uuid("asset_id").notNull(),
+    kind: maintenanceKind("kind").notNull(),
+    status: maintenanceStatus("status").notNull(),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date"),
+    executor: text("executor"),
+    description: text("description").notNull(),
+    cost: money("cost").notNull().default("0"),
+    fundingSourceId: uuid("funding_source_id"),
+    fundingComponentId: uuid("funding_component_id"),
+    conditionBefore: assetCondition("condition_before").notNull(),
+    conditionAfter: assetCondition("condition_after"),
+    createdBy: uuid("created_by").notNull(),
+    ...timestamps(),
+  },
+  (t) => [
+    index("maintenances_asset_idx").on(t.schoolId, t.assetId, t.startDate),
+    sameSchool(t, "assetId", assets),
+    sameSchool(t, "fundingSourceId", fundingSources),
+    sameSchool(t, "fundingComponentId", fundingComponents),
+    check("maintenances_cost_check", sql`${t.cost} >= 0`),
+  ],
+);
+
 /** Tabel ber-school_id yang wajib dilindungi RLS (dipakai migrasi & tes isolasi) */
 export const RLS_TABLES = [
   "school_settings",
@@ -928,4 +1117,11 @@ export const RLS_TABLES = [
   "loans",
   "loan_lines",
   "notifications",
+  "stock_opnames",
+  "stock_opname_lines",
+  "asset_inventories",
+  "asset_inventory_lines",
+  "disposals",
+  "disposal_lines",
+  "maintenances",
 ] as const;

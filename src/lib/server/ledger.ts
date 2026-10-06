@@ -1,7 +1,8 @@
 import "server-only";
-import { and, asc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Tx } from "@/db";
 import {
+  stockOpnames,
   docCounters,
   schoolSettings,
   stockBalances,
@@ -95,6 +96,16 @@ async function saveBalances(tx: Tx, map: Map<string, Bal>) {
   }
 }
 
+/** Gudang dibekukan selama stock opname berjalan (kecuali dokumen penyesuaian opname itu sendiri) */
+async function checkFrozen(tx: Tx, warehouseIds: string[], opnameId: string | null) {
+  const open = await tx
+    .select({ id: stockOpnames.id, number: stockOpnames.number })
+    .from(stockOpnames)
+    .where(and(inArray(stockOpnames.warehouseId, warehouseIds), inArray(stockOpnames.status, ["DRAF", "DIAJUKAN"])));
+  const blocking = open.find((o) => o.id !== opnameId);
+  if (blocking) throw new StockError(`Gudang sedang stock opname (${blocking.number}); transaksi ditunda sampai opname selesai`);
+}
+
 async function checkPeriod(tx: Tx, date: string) {
   const [st] = await tx.select({ closed: schoolSettings.booksClosedUntil }).from(schoolSettings);
   if (st?.closed && date <= st.closed) throw new StockError(`Periode sampai ${st.closed} sudah ditutup`);
@@ -179,6 +190,7 @@ export async function postDoc(tx: Tx, schoolId: string, userId: string, docId: s
   if (doc.kind === "MUTASI" && (!doc.toWarehouseId || doc.toWarehouseId === doc.warehouseId))
     throw new StockError("Gudang tujuan mutasi harus berbeda dengan gudang asal");
   await checkPeriod(tx, doc.date);
+  await checkFrozen(tx, [doc.warehouseId, ...(doc.toWarehouseId ? [doc.toWarehouseId] : [])], doc.opnameId);
 
   const lines = await tx
     .select({ line: stockDocLines, item: supplyItems })
@@ -254,6 +266,7 @@ export async function cancelDoc(tx: Tx, schoolId: string, userId: string, docId:
   await checkPeriod(tx, date);
 
   const orig = await tx.select().from(stockMovements).where(eq(stockMovements.docId, docId)).orderBy(asc(stockMovements.id));
+  await checkFrozen(tx, [...new Set(orig.map((m) => m.warehouseId))], null);
   const bal = await lockBalances(tx, schoolId, orig.map((m) => [m.itemId, m.warehouseId]));
   const base: MoveBase = { schoolId, date, docId, docNumber: doc.number!, createdBy: userId, description: `Pembatalan ${doc.number}: ${reason}` };
   const moves: (typeof stockMovements.$inferInsert)[] = [];

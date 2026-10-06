@@ -93,12 +93,14 @@ export async function createAssets(tx: Tx, s: SchoolSession, input: NewAssetsInp
   return { batchId, ids: rows.map((r) => r.id), isIntra, kib, first, last: regNos.at(-1)! };
 }
 
-async function lockAssets(tx: Tx, ids: string[]) {
+export async function lockAssets(tx: Tx, ids: string[], forMove = false) {
   if (!ids.length || ids.length > 1000) throw new UserError("Pilih 1–1000 aset");
   const rows = await tx.select().from(assets).where(inArray(assets.id, ids)).for("update");
   if (rows.length !== new Set(ids).size) throw new UserError("Sebagian aset tidak ditemukan");
   const gone = rows.find((r) => r.status === "DIHAPUS");
   if (gone) throw new UserError(`Aset ${gone.name} sudah dihapus dari daftar barang`);
+  const locked = forMove && rows.find((r) => r.status === "DIUSULKAN_HAPUS");
+  if (locked) throw new UserError(`Aset ${locked.name} sedang diusulkan penghapusan dan tidak bisa dipindah`);
   return rows;
 }
 
@@ -107,7 +109,7 @@ export async function moveAssets(tx: Tx, s: SchoolSession, ids: string[], toRoom
   if (date > todayWita()) throw new UserError("Tanggal tidak boleh di masa depan");
   const [room] = await tx.select({ id: rooms.id }).from(rooms).where(eq(rooms.id, toRoomId));
   if (!room) throw new UserError("Ruangan tidak ditemukan");
-  const rows = (await lockAssets(tx, ids)).filter((r) => r.roomId !== toRoomId);
+  const rows = (await lockAssets(tx, ids, true)).filter((r) => r.roomId !== toRoomId);
   if (!rows.length) throw new UserError("Semua aset terpilih sudah berada di ruangan tersebut");
   await tx.update(assets).set({ roomId: toRoomId, updatedAt: new Date() }).where(inArray(assets.id, rows.map((r) => r.id)));
   await tx.insert(assetEvents).values(

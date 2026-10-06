@@ -13,6 +13,6 @@ export async function GET(_req: Request, ctx: RouteContext<"/berkas/[nama]">) {
   const f = await readSchoolFile(schoolId, (await ctx.params).nama);
   if (!f) return new Response("Tidak ditemukan", { status: 404 });
   return new Response(new Uint8Array(f.data), {
-    headers: { "Content-Type": f.type, "Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" },
+    headers: { "Content-Type": f.type, "Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox" },
   });
 }

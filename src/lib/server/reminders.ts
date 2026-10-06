@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { loans, schools, stockBalances, supplyItems } from "@/db/schema";
+import { loans, schools, stockBalances, stockOpnames, supplyItems, warehouses } from "@/db/schema";
 import { withSchool } from "@/lib/tenant-core";
 import { notifyUsers, userIdsWithRoles } from "@/lib/server/inbox";
 import { fmtDue } from "@/lib/server/loans";
@@ -56,6 +56,28 @@ export async function runDailyReminders(now = new Date()) {
           body: low.slice(0, 30).map((x) => `• ${x.name}: ${fmtNum(x.qty)} (min. ${fmtNum(x.min)})`).join("\n"),
           link: "/persediaan?f=menipis",
         });
+      // Pengingat stock opname semester (Permendagri 47/2021 Ps. 39): 15 & 25 Juni/Desember
+      const wita = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Makassar" }).format(now);
+      const [y, mo, d] = wita.split("-").map(Number);
+      if ((mo === 6 || mo === 12) && (d === 15 || d === 25)) {
+        const semStart = `${y}-${mo === 6 ? "01" : "07"}-01`;
+        const pending = await tx
+          .selectDistinct({ name: warehouses.name })
+          .from(stockBalances)
+          .innerJoin(warehouses, eq(warehouses.id, stockBalances.warehouseId))
+          .where(
+            and(
+              sql`${stockBalances.qty} > 0`,
+              sql`not exists (select 1 from ${stockOpnames} o where o.warehouse_id = ${stockBalances.warehouseId} and o.status = 'DISETUJUI' and o.date >= ${semStart}::date)`,
+            ),
+          );
+        if (pending.length)
+          n += await notifyUsers(tx, schoolId, petugas, {
+            title: "Stock opname semester belum dilakukan",
+            body: `Gudang: ${pending.map((p) => p.name).join(", ")}. Opname wajib setiap semester (Permendagri 47/2021 Pasal 39).`,
+            link: "/audit/opname",
+          });
+      }
       return n;
     });
   }
