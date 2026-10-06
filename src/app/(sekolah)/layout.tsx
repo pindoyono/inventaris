@@ -51,6 +51,9 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
             Inventaris <span className="font-normal text-slate-500">· {school?.shortName}</span>
           </Link>
           <form action={keluar} className="flex items-center gap-3 text-sm text-slate-600">
+            <Link href="/panduan" className="rounded-md px-2 py-1 hover:bg-slate-100" aria-label="Panduan pengguna" title="Panduan pengguna">
+              <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01" /></svg>
+            </Link>
             <Link href="/pindai" className="rounded-md px-2 py-1 hover:bg-slate-100" aria-label="Pindai QR label barang" title="Pindai QR">
               <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 12h10" /></svg>
             </Link>

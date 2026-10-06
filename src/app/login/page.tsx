@@ -20,6 +20,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       </div>
       <p className="text-center text-sm text-slate-600">
         Sekolah belum terdaftar? <Link href="/daftar" className="font-medium text-teal-700 hover:underline">Daftarkan sekolah</Link>
+        <span className="mx-2 text-slate-300">·</span>
+        <Link href="/panduan" className="font-medium text-teal-700 hover:underline">Panduan pengguna</Link>
       </p>
     </main>
   );

@@ -4,7 +4,7 @@ import { authConfig } from "@/auth.config";
 
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC = [/^\/$/, /^\/(sw\.js|manifest\.webmanifest|offline\.html)$/, /^\/keluar$/, /^\/q\/[0-9a-f]{24}$/, /^\/daftar(\/|$)/, /^\/login$/, /^\/platform\/login$/, /^\/api\/auth\//];
+const PUBLIC = [/^\/$/, /^\/panduan(\/|$)/, /^\/(sw\.js|manifest\.webmanifest|offline\.html)$/, /^\/keluar$/, /^\/q\/[0-9a-f]{24}$/, /^\/daftar(\/|$)/, /^\/login$/, /^\/platform\/login$/, /^\/api\/auth\//];
 
 /**
  * Pemeriksaan awal (optimistik) dari JWT saja. Otorisasi sebenarnya tetap di server
