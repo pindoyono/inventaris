@@ -358,6 +358,10 @@ Bersih & minimalis (off-white, slate, emerald), mobile-first untuk Petugas (scan
 ## 15. Tindak Lanjut
 
 1. **[TINDAK LANJUT] Deploy key** `inventaris` ditambahkan ke repo `pindoyono/inventaris` (Settings → Deploy keys, *Allow write access*).
-2. **[TINDAK LANJUT] Email:** buat **App Password** untuk `admin@smkn2malinau.sch.id` (wajib 2-Step Verification aktif) dan simpan di server (bukan di chat) — diperlukan di Fase 2. Disarankan menambah record SPF `v=spf1 include:_spf.google.com ~all` pada domain `smkn2malinau.sch.id` agar email tidak masuk spam.
-3. **[TINDAK LANJUT] Kode BMD SMKN 2 Malinau** (untuk sekolah uji pertama): kode pengguna barang Dinas Pendidikan Provinsi Kaltara, kode kuasa pengguna barang sekolah, dan batas kapitalisasi dari Perkada — bisa ditanyakan ke pengurus barang/BPKAD; boleh menyusul.
-4. **[TINDAK LANJUT] Persetujuan contoh format cetak** (§8) — dikirim bertahap sesuai fase.
+2. **Email — siap.** Record SPF `v=spf1 include:_spf.google.com ~all` sudah aktif di `smkn2malinau.sch.id` (dicek 6 Okt 2026). App Password Google Workspace `admin@smkn2malinau.sch.id` sudah tersedia; dimasukkan langsung ke file env server saat Fase 2 (tidak lewat chat).
+3. **Batas kapitalisasi SMKN 2 Malinau: Rp2.000.000** — dipakai sebagai nilai bawaan semua golongan (dapat diubah per golongan di Pengaturan bila Perkada membedakannya). Aset ≥ Rp2.000.000 → intrakomptabel (`01`), di bawahnya → ekstrakomptabel (`02`).
+4. **[TINDAK LANJUT] Kode pengguna barang (Dinas) & kode kuasa pengguna barang (sekolah) — belum diketahui.** Sistem tetap berjalan tanpa kode ini: kode register & label ditandai **"SEMENTARA"** dan dapat dicetak ulang otomatis setelah kode diisi. Cara mendapatkannya:
+   - lihat **label/stiker barcode inventaris** yang sudah tertempel pada aset sekolah (komputer, meja, proyektor) — baris atas label memuat kode lokasi; atau
+   - lihat **KIB/KIR** yang pernah diterbitkan Dinas/BPKAD untuk sekolah (baris "No. Kode Lokasi"); atau
+   - tanyakan ke **pengurus barang Dinas Pendidikan dan Kebudayaan Provinsi Kalimantan Utara** atau **BPKAD Provinsi** (aplikasi BMD Pemda).
+5. **[TINDAK LANJUT] Persetujuan contoh format cetak** (§8) — sedang ditinjau; perubahan menyusul sebelum fase yang memakainya.
