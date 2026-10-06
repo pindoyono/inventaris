@@ -1,0 +1,18 @@
+import { mock } from "bun:test";
+import { readFileSync } from "node:fs";
+
+// Tes selalu memakai database inventaris_test (bukan dev/produksi)
+const env = Object.fromEntries(
+  readFileSync(new URL("../.env.local", import.meta.url), "utf8")
+    .split("\n")
+    .filter((l) => /^[A-Z_]+=/.test(l))
+    .map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim().replace(/^(["'])(.*)\1$/, "$2")]),
+);
+if (!env.TEST_DATABASE_URL || !env.TEST_DATABASE_URL_OWNER) throw new Error("TEST_DATABASE_URL(_OWNER) belum di-set di .env.local");
+process.env.DATABASE_URL = env.TEST_DATABASE_URL;
+process.env.TEST_DATABASE_URL_OWNER = env.TEST_DATABASE_URL_OWNER;
+process.env.FILES_DIR = "/tmp/inventaris-test-files";
+
+// Modul Next yang hanya berlaku di server React
+mock.module("server-only", () => ({}));
+mock.module("next/headers", () => ({ headers: async () => new Headers() }));

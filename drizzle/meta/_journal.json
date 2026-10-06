@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791283507147,
+      "tag": "0000_fondasi",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791283507873,
+      "tag": "0001_rls_dan_hak_akses",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791285440622,
+      "tag": "0002_fk_satu_sekolah",
+      "breakpoints": true
+    }
+  ]
+}
