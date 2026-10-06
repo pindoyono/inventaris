@@ -12,7 +12,7 @@ body { margin: 0; font: 10pt/1.35 Arial, "Liberation Sans", Helvetica, sans-seri
 @media print {
   html, body { background: #fff; }
   .halaman { margin: 0; box-shadow: none; min-height: auto; }
-  .halaman + .halaman { break-before: page; }
+  .halaman ~ .halaman { break-before: page; }
   .tanpa-cetak { display: none !important; }
 }
 @page potret { size: A4 portrait; margin: 0; }

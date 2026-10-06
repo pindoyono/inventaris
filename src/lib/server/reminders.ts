@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { loans, schools, stockBalances, stockOpnames, supplyItems, warehouses } from "@/db/schema";
+import { constructions, loans, schools, stockBalances, stockOpnames, supplyItems, utilizations, warehouses } from "@/db/schema";
 import { withSchool } from "@/lib/tenant-core";
 import { notifyUsers, userIdsWithRoles } from "@/lib/server/inbox";
 import { fmtDue } from "@/lib/server/loans";
@@ -87,6 +87,36 @@ export async function runDailyReminders(now = new Date()) {
             title: `${need.length} ruangan perlu KIR baru`,
             body: need.slice(0, 20).map((r) => `• ${r.room}: ${r.reasons.join(", ")}`).join("\n"),
             link: "/laporan/kir/status",
+          });
+      }
+      // Perjanjian pemanfaatan berakhir dalam 30/7 hari atau hari ini
+      const dayPlus = (k: number) => {
+        const d = new Date(`${wita}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + k);
+        return d.toISOString().slice(0, 10);
+      };
+      const ending = await tx
+        .select({ id: utilizations.id, partner: utilizations.partner, endDate: utilizations.endDate })
+        .from(utilizations)
+        .where(and(eq(utilizations.status, "BERJALAN"), inArray(utilizations.endDate, [dayPlus(30), dayPlus(7), wita])));
+      const managers = await userIdsWithRoles(tx, ["ADMIN", "PETUGAS", "KEPSEK"]);
+      for (const u of ending)
+        n += await notifyUsers(tx, schoolId, managers, {
+          title: u.endDate === wita ? `Perjanjian pemanfaatan dengan ${u.partner} berakhir hari ini` : `Perjanjian pemanfaatan dengan ${u.partner} berakhir ${u.endDate}`,
+          body: "Tandai selesai atau siapkan perpanjangan (perlu persetujuan Pengelola/Kepala Daerah).",
+          link: `/aset/pemanfaatan/${u.id}`,
+        });
+      // KDP melewati target selesai — diingatkan tiap Senin
+      if (new Date(`${wita}T12:00:00+08:00`).getUTCDay() === 1) {
+        const late = await tx
+          .select({ id: constructions.id })
+          .from(constructions)
+          .where(and(eq(constructions.status, "BERJALAN"), lt(constructions.targetDate, wita)));
+        if (late.length)
+          n += await notifyUsers(tx, schoolId, petugas, {
+            title: `${late.length} pekerjaan KDP/renovasi melewati target selesai`,
+            body: "Perbarui progres, catat BAST bila sudah selesai, atau tandai dihentikan.",
+            link: "/aset/kdp",
           });
       }
       return n;

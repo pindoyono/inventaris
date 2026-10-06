@@ -1,14 +1,14 @@
 import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 import type { Tx } from "@/db";
-import { assets, attachments, disposals, loans, maintenances, procurements } from "@/db/schema";
+import { assets, attachments, constructions, disposals, loans, maintenances, procurements, utilizations } from "@/db/schema";
 import { UserError } from "@/lib/server/errors";
 import { FileError, saveDocument } from "@/lib/server/files";
 import { hasAnyRole } from "@/lib/roles";
 import type { SchoolSession } from "@/lib/tenant";
 
 /** Entitas yang boleh diberi lampiran → tabelnya (memastikan id milik sekolah ini lewat RLS) */
-const TABLES = { aset: assets, pengadaan: procurements, peminjaman: loans, penghapusan: disposals, pemeliharaan: maintenances } as const;
+const TABLES = { aset: assets, pengadaan: procurements, peminjaman: loans, penghapusan: disposals, pemeliharaan: maintenances, kdp: constructions, pemanfaatan: utilizations } as const;
 export type AttachEntity = keyof typeof TABLES;
 export const isAttachEntity = (e: string): e is AttachEntity => e in TABLES;
 

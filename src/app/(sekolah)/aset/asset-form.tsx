@@ -155,7 +155,7 @@ export function AssetForm({ opts, today, edit }: { opts: AssetFormOptions; today
   );
 }
 
-function CodePicker({ value, onChange, favorites }: { value: Code | null; onChange: (c: Code | null) => void; favorites: Code[] }) {
+export function CodePicker({ value, onChange, favorites }: { value: Code | null; onChange: (c: Code | null) => void; favorites: Code[] }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Code[]>([]);
   const [pending, start] = useTransition();

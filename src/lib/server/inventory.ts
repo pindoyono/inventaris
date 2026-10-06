@@ -27,7 +27,7 @@ export async function startInventory(tx: Tx, s: SchoolSession, roomId: string, n
   return v;
 }
 
-export type CheckInput = { lineId: string; found: boolean | null; condition?: Cond | null; note?: string | null };
+export type CheckInput = { lineId: string; found: boolean | null; condition?: Cond | null; note?: string | null; followUp?: "REKLASIFIKASI" | "KOREKSI" | null };
 
 export async function saveChecks(tx: Tx, s: SchoolSession, id: string, checks: CheckInput[], extras: { name: string; qty: number; note?: string | null }[] = []) {
   const v = await lockInv(tx, id);
@@ -35,7 +35,11 @@ export async function saveChecks(tx: Tx, s: SchoolSession, id: string, checks: C
   for (const c of checks)
     await tx
       .update(assetInventoryLines)
-      .set({ found: c.found, conditionFound: c.found ? (c.condition ?? null) : null, note: c.note?.trim() || null })
+      .set({
+        found: c.found, conditionFound: c.found ? (c.condition ?? null) : null, note: c.note?.trim() || null,
+        // Temuan LHI: perlu reklasifikasi/koreksi (hanya barang yang ditemukan)
+        followUp: c.found ? (c.followUp ?? null) : null, followUpNote: c.found && c.followUp ? c.note?.trim() || null : null,
+      })
       .where(and(eq(assetInventoryLines.id, c.lineId), eq(assetInventoryLines.inventoryId, id)));
   for (const x of extras) {
     if (x.name.trim().length < 3 || !(x.qty >= 1)) throw new UserError("Barang belum tercatat: isi uraian dan jumlah");

@@ -148,6 +148,20 @@
       "when": 1791324409567,
       "tag": "0020_rls_kir_lampiran",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791325994103,
+      "tag": "0021_lanjutan",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791326008200,
+      "tag": "0022_rls_lanjutan",
+      "breakpoints": true
     }
   ]
 }

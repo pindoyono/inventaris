@@ -7,17 +7,17 @@ import { inventoryAction } from "../../actions";
 import { ScanButton } from "@/components/scan-button";
 
 type Cond = keyof typeof CONDITION_LABEL;
-type Line = { id: string; assetId: string | null; label: string; code: string; assetStatus: string | null; recorded: Cond | null; found: boolean | null; condition: Cond | null; note: string | null };
+type Line = { id: string; assetId: string | null; label: string; code: string; assetStatus: string | null; recorded: Cond | null; found: boolean | null; condition: Cond | null; note: string | null; followUp: "REKLASIFIKASI" | "KOREKSI" | null; followUpDone: boolean };
 
 export function InventorySheet({ id, editable, status, lines }: { id: string; editable: boolean; status: string; lines: Line[] }) {
   const assetLines = lines.filter((l) => l.assetId);
   const extras = lines.filter((l) => !l.assetId);
-  const [rows, setRows] = useState(assetLines.map((l) => ({ ...l, cond: l.condition ?? l.recorded ?? "BAIK", memo: l.note ?? "" })));
+  const [rows, setRows] = useState(assetLines.map((l) => ({ ...l, cond: l.condition ?? l.recorded ?? "BAIK", memo: l.note ?? "", fu: l.followUp ?? "" })));
   const [newExtras, setNewExtras] = useState<{ name: string; qty: string }[]>([]);
   const [msg, setMsg] = useState<{ ok?: string; err?: string }>({});
   const [pending, start] = useTransition();
   const payload = () => ({
-    checks: rows.map((r) => ({ lineId: r.id, found: r.found, condition: r.found ? r.cond : null, note: r.memo })),
+    checks: rows.map((r) => ({ lineId: r.id, found: r.found, condition: r.found ? r.cond : null, note: r.memo, followUp: r.found && r.fu ? (r.fu as "KOREKSI") : null })),
     extras: newExtras.filter((x) => x.name.trim()).map((x) => ({ name: x.name, qty: Number(x.qty) || 1 })),
   });
   const run = (action: "SIMPAN" | "SELESAI" | "BATAL", c?: string) => {
@@ -51,10 +51,10 @@ export function InventorySheet({ id, editable, status, lines }: { id: string; ed
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-600">
-            <tr><th className="px-3 py-2 font-medium">Barang</th><th className="px-3 py-2 font-medium">Kondisi tercatat</th><th className="px-3 py-2 font-medium">Ditemukan?</th><th className="px-3 py-2 font-medium">Kondisi fisik</th><th className="px-3 py-2 font-medium">Catatan</th></tr>
+            <tr><th className="px-3 py-2 font-medium">Barang</th><th className="px-3 py-2 font-medium">Kondisi tercatat</th><th className="px-3 py-2 font-medium">Ditemukan?</th><th className="px-3 py-2 font-medium">Kondisi fisik</th><th className="px-3 py-2 font-medium">Catatan</th><th className="px-3 py-2 font-medium">Tindak lanjut</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {rows.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-500">Tidak ada barang tercatat di ruangan ini.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500">Tidak ada barang tercatat di ruangan ini.</td></tr>}
             {rows.map((r, i) => (
               <tr key={r.id} className={r.found === false ? "bg-red-50" : r.found ? "" : "bg-amber-50/40"}>
                 <td className="px-3 py-2">{r.label}<span className="block font-mono text-xs text-slate-500">{r.code}{r.assetStatus && r.assetStatus !== "DIGUNAKAN" ? ` · ${r.assetStatus.toLowerCase().replaceAll("_", " ")}` : ""}</span></td>
@@ -75,6 +75,15 @@ export function InventorySheet({ id, editable, status, lines }: { id: string; ed
                   ) : r.found && r.condition ? CONDITION_LABEL[r.condition] : ""}
                 </td>
                 <td className="px-3 py-2">{editable ? <input value={r.memo} onChange={(e) => setRow(i, { memo: e.target.value })} className="w-44 rounded-md border border-slate-300 px-2 py-1" /> : r.note}</td>
+                <td className="px-3 py-2">
+                  {editable && r.found ? (
+                    <select value={r.fu} onChange={(e) => setRow(i, { fu: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1" title="Temuan yang perlu ditindaklanjuti di halaman aset">
+                      <option value="">—</option><option value="REKLASIFIKASI">Perlu reklasifikasi</option><option value="KOREKSI">Perlu koreksi</option>
+                    </select>
+                  ) : r.followUp ? (
+                    <a href={`/aset/${r.assetId}`} className={r.followUpDone ? "text-slate-500" : "font-medium text-amber-700 hover:underline"}>{r.followUp === "KOREKSI" ? "Koreksi" : "Reklasifikasi"}{r.followUpDone ? " ✓ selesai" : " — tindak lanjuti"}</a>
+                  ) : ""}
+                </td>
               </tr>
             ))}
           </tbody>

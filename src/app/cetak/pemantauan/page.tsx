@@ -7,6 +7,7 @@ import { rusakBeratData, tidakDigunakanData } from "@/lib/server/reports";
 import { fmtNum, fmtRp } from "@/lib/decimal";
 import { tanggalPanjang } from "@/lib/terbilang";
 import { Halaman, Tabel, Ttd } from "@/components/cetak/print";
+import { isJenisLanjutan, PemantauanLanjutan } from "@/components/cetak/pemantauan-lanjutan";
 
 export const metadata: Metadata = { title: "Cetak Laporan Pemantauan" };
 
@@ -17,6 +18,22 @@ export default async function CetakPemantauan({ searchParams }: PageProps<"/ceta
   const today = todayWita();
   const year = typeof sp.tahun === "string" && /^\d{4}$/.test(sp.tahun) ? Number(sp.tahun) : Number(today.slice(0, 4));
   const sifat = sp.sifat === "insidentil" ? "Insidentil" : "Periodik";
+  if (isJenisLanjutan(sp.jenis)) {
+    const jenis = sp.jenis;
+    return withSchool(s.schoolId, async (tx) => {
+      const c = await loadPrintContext(tx, s.schoolId);
+      const head = (judul: string) => (
+        <div className="judul" style={{ marginBottom: "3mm" }}>
+          <h1 style={{ textDecoration: "none" }}>{judul}</h1>
+          <div className="sub">secara {sifat.toLowerCase()} · Kuasa Pengguna Barang {c.school.name}</div>
+          <div className="sub">{c.parts.ownershipCode === "11" ? `Provinsi ${c.provinsi}` : `Kabupaten/Kota ${c.kota}`} · Tahun {year}</div>
+        </div>
+      );
+      const tgl = tanggalPanjang(`${year}` < today.slice(0, 4) ? `${year}-12-31` : today);
+      const ttd = <Ttd c={c} tanggal={tgl} cols={[{ jabatan: <>Kuasa Pengguna Barang<br />Kepala {c.school.name}</>, signer: c.kepsek }]} />;
+      return PemantauanLanjutan({ tx, c, jenis, year, head, ttd });
+    });
+  }
   const rb = sp.jenis !== "tidak-digunakan";
   const data = await withSchool(s.schoolId, async (tx) => ({
     rb: rb ? await rusakBeratData(tx, year) : [],

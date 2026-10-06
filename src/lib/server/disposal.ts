@@ -26,7 +26,7 @@ async function lockD(tx: Tx, id: string) {
   return d;
 }
 
-export type DisposalLineInput = { assetId: string; reason: DisposalReason; followUp?: "PEMUSNAHAN" | "PEMINDAHTANGANAN"; policeLetter?: string | null; note?: string | null };
+export type DisposalLineInput = { assetId: string; reason: DisposalReason; followUp?: "PEMUSNAHAN" | "PEMINDAHTANGANAN"; transferForm?: "PENJUALAN" | "TUKAR_MENUKAR" | "HIBAH" | "PENYERTAAN_MODAL" | null; policeLetter?: string | null; note?: string | null };
 
 /** Petugas menyiapkan draf usulan */
 export async function saveDisposalDraft(tx: Tx, s: SchoolSession, input: { id?: string; date: string; note: string | null; lines: DisposalLineInput[] }) {
@@ -47,7 +47,7 @@ export async function saveDisposalDraft(tx: Tx, s: SchoolSession, input: { id?: 
   } else {
     [{ id }] = await tx.insert(disposals).values({ schoolId: s.schoolId, date: input.date, note: input.note, createdBy: s.userId }).returning({ id: disposals.id });
   }
-  await tx.insert(disposalLines).values(input.lines.map((l) => ({ schoolId: s.schoolId, disposalId: id!, assetId: l.assetId, reason: l.reason, followUp: l.followUp ?? "PEMUSNAHAN", policeLetter: l.policeLetter?.trim() || null, note: l.note?.trim() || null })));
+  await tx.insert(disposalLines).values(input.lines.map((l) => ({ schoolId: s.schoolId, disposalId: id!, assetId: l.assetId, reason: l.reason, followUp: l.followUp ?? "PEMUSNAHAN", transferForm: l.followUp === "PEMINDAHTANGANAN" ? (l.transferForm ?? "PENJUALAN") : null, policeLetter: l.policeLetter?.trim() || null, note: l.note?.trim() || null })));
   return id!;
 }
 

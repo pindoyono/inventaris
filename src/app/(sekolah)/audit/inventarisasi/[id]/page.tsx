@@ -35,7 +35,7 @@ export default async function InventarisasiDetailPage({ params }: PageProps<"/au
         status={v.status}
         lines={data.lines.map(({ l, name, brand, bmdCode, regNo, status }) => ({
           id: l.id, assetId: l.assetId, label: l.assetId ? `${name}${brand ? ` · ${brand}` : ""}` : l.extraName!, code: l.assetId ? `${bmdCode} · ${String(regNo).padStart(6, "0")}` : `belum tercatat · ${l.extraQty} unit`,
-          assetStatus: status, recorded: l.conditionRecorded, found: l.found, condition: l.conditionFound, note: l.note,
+          assetStatus: status, recorded: l.conditionRecorded, found: l.found, condition: l.conditionFound, note: l.note, followUp: l.followUp, followUpDone: !!l.followUpDoneAt,
         }))}
       />
       <a href={`/cetak/inventarisasi/${v.id}`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">{v.status === "DRAF" ? "Cetak lembar kerja" : "Cetak laporan hasil inventarisasi"}</a>

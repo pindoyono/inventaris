@@ -78,6 +78,15 @@ export const procurementStatus = pgEnum("procurement_status", ["DRAF", "DIPESAN"
 export const goodsKind = pgEnum("goods_kind", ["PERSEDIAAN", "ASET"]);
 export const maintenanceKind = pgEnum("maintenance_kind", ["RUTIN", "PERBAIKAN", "PENINGKATAN"]);
 export const maintenanceStatus = pgEnum("maintenance_status", ["BERJALAN", "SELESAI"]);
+export const valueChangeKind = pgEnum("value_change_kind", ["PEMBAYARAN_KDP", "KAPITALISASI", "KOREKSI"]);
+export const assetChangeKind = pgEnum("asset_change_kind", ["REKLASIFIKASI", "KOREKSI"]);
+export const transferForm = pgEnum("transfer_form", ["PENJUALAN", "TUKAR_MENUKAR", "HIBAH", "PENYERTAAN_MODAL"]);
+export const utilizationKind = pgEnum("utilization_kind", ["PEMANFAATAN", "PENGGUNAAN_SEMENTARA", "OPERASIONAL_PIHAK_LAIN"]);
+export const utilizationForm = pgEnum("utilization_form", ["SEWA", "PINJAM_PAKAI", "BGS_BSG", "KSP", "KSPI"]);
+export const utilizationStatus = pgEnum("utilization_status", ["RENCANA", "DISETUJUI", "BERJALAN", "SELESAI", "DITOLAK", "DIBATALKAN"]);
+export const constructionKind = pgEnum("construction_kind", ["KDP", "ATR"]);
+export const constructionStatus = pgEnum("construction_status", ["BERJALAN", "DIHENTIKAN", "SELESAI"]);
+export const atrFollowUp = pgEnum("atr_follow_up", ["PEMINDAHTANGANAN", "PENGALIHAN_STATUS"]);
 /** Jenis dokumen stok persediaan */
 export const stockDocKind = pgEnum("stock_doc_kind", [
   "SALDO_AWAL",
@@ -1011,6 +1020,11 @@ export const assetInventoryLines = pgTable(
     extraName: text("extra_name"),
     extraQty: integer("extra_qty"),
     note: text("note"),
+    /** Temuan inventarisasi yang perlu ditindaklanjuti (LHI, Permendagri 7/2024 C.27/C.29) */
+    followUp: assetChangeKind("follow_up"),
+    followUpNote: text("follow_up_note"),
+    /** Diisi saat reklasifikasi/koreksi atas temuan ini dicatat */
+    followUpDoneAt: timestamp("follow_up_done_at", { withTimezone: true }),
   },
   (t) => [
     uniqueIndex("asset_inventory_lines_asset_key").on(t.inventoryId, t.assetId),
@@ -1057,6 +1071,8 @@ export const disposalLines = pgTable(
     assetId: uuid("asset_id").notNull(),
     reason: disposalReason("reason").notNull(),
     followUp: disposalFollowUp("follow_up").notNull().default("PEMUSNAHAN"),
+    /** Bentuk pemindahtanganan yang direncanakan (RKBMD A.3, pemantauan C.13) */
+    transferForm: transferForm("transfer_form"),
     /** Wajib bila kecurian: nomor surat keterangan kepolisian */
     policeLetter: text("police_letter"),
     note: text("note"),
@@ -1088,6 +1104,8 @@ export const maintenances = pgTable(
     fundingComponentId: uuid("funding_component_id"),
     conditionBefore: assetCondition("condition_before").notNull(),
     conditionAfter: assetCondition("condition_after"),
+    /** Biaya peningkatan ditambahkan ke nilai aset (kapitalisasi) */
+    capitalized: boolean("capitalized").notNull().default(false),
     createdBy: uuid("created_by").notNull(),
     ...timestamps(),
   },
@@ -1323,6 +1341,144 @@ export const importJobs = pgTable(
   (t) => [index("import_jobs_school_idx").on(t.schoolId, t.createdAt)],
 );
 
+// ─────────────────────────────────────────────────────────── nilai, reklasifikasi & koreksi aset
+
+/** Perubahan nilai aset (pembayaran KDP, kapitalisasi pemeliharaan, koreksi) — hanya INSERT; assets.acq_price = nilai terkini */
+export const assetValueChanges = pgTable(
+  "asset_value_changes",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    schoolId: schoolId(),
+    assetId: uuid("asset_id").notNull(),
+    kind: valueChangeKind("kind").notNull(),
+    date: date("date").notNull(),
+    amount: money("amount").notNull(),
+    maintenanceId: uuid("maintenance_id"),
+    docNo: text("doc_no"),
+    note: text("note"),
+    createdBy: uuid("created_by"),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("asset_value_changes_asset_idx").on(t.schoolId, t.assetId, t.date), sameSchool(t, "assetId", assets, "cascade")],
+);
+
+/** Reklasifikasi (kode/golongan/intra-ekstra) & koreksi data perolehan — hanya INSERT */
+export const assetChanges = pgTable(
+  "asset_changes",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    schoolId: schoolId(),
+    assetId: uuid("asset_id").notNull(),
+    kind: assetChangeKind("kind").notNull(),
+    date: date("date").notNull(),
+    before: jsonb("before").$type<Record<string, unknown>>().notNull(),
+    after: jsonb("after").$type<Record<string, unknown>>().notNull(),
+    reason: text("reason").notNull(),
+    docNo: text("doc_no"),
+    /** Temuan inventarisasi yang ditindaklanjuti (bila ada) */
+    inventoryLineId: uuid("inventory_line_id"),
+    createdBy: uuid("created_by"),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("asset_changes_asset_idx").on(t.schoolId, t.assetId, t.id), index("asset_changes_kind_idx").on(t.schoolId, t.kind, t.date), sameSchool(t, "assetId", assets, "cascade")],
+);
+
+// ─────────────────────────────────────────────────────────── KDP & aset tetap renovasi
+
+/** Konstruksi dalam pengerjaan (KIB F) atau renovasi aset pihak lain (ATR, KIB E 1.3.5.07); asetnya tercatat di `assets` */
+export const constructions = pgTable(
+  "constructions",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    kind: constructionKind("kind").notNull(),
+    assetId: uuid("asset_id").notNull(),
+    status: constructionStatus("status").notNull().default("BERJALAN"),
+    /** ATR: pemilik aset yang direnovasi (Pengguna Barang lain/pihak lain) */
+    ownerName: text("owner_name"),
+    contractNo: text("contract_no"),
+    contractDate: date("contract_date"),
+    vendorId: uuid("vendor_id"),
+    contractValue: money("contract_value").notNull().default("0"),
+    startDate: date("start_date").notNull(),
+    targetDate: date("target_date"),
+    progress: smallint("progress").notNull().default(0),
+    stopReason: text("stop_reason"),
+    finishedDate: date("finished_date"),
+    bastNo: text("bast_no"),
+    atrFollowUp: atrFollowUp("atr_follow_up"),
+    note: text("note"),
+    createdBy: uuid("created_by").notNull(),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("constructions_school_id_key").on(t.schoolId, t.id),
+    uniqueIndex("constructions_asset_key").on(t.schoolId, t.assetId),
+    sameSchool(t, "assetId", assets),
+    sameSchool(t, "vendorId", vendors),
+    check("constructions_progress_check", sql`${t.progress} between 0 and 100`),
+    check("constructions_value_check", sql`${t.contractValue} >= 0`),
+  ],
+);
+
+// ─────────────────────────────────────────────────────────── pemanfaatan & penggunaan oleh pihak lain
+
+/** Pemanfaatan (sewa/pinjam pakai/BGS/BSG/KSP/KSPI), penggunaan sementara, dan BMD dioperasikan pihak lain */
+export const utilizations = pgTable(
+  "utilizations",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    kind: utilizationKind("kind").notNull(),
+    form: utilizationForm("form"),
+    status: utilizationStatus("status").notNull().default("RENCANA"),
+    /** Tahun anggaran RKBMD (A.1) */
+    planYear: smallint("plan_year").notNull(),
+    partner: text("partner"),
+    purpose: text("purpose").notNull(),
+    term: text("term"),
+    /** Berjalan tanpa persetujuan Pengelola/Kepala Daerah (C.11) */
+    withoutApproval: boolean("without_approval").notNull().default(false),
+    approvalNo: text("approval_no"),
+    approvalDate: date("approval_date"),
+    agreementNo: text("agreement_no"),
+    agreementDate: date("agreement_date"),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+    endedDate: date("ended_date"),
+    contribution: money("contribution").notNull().default("0"),
+    note: text("note"),
+    lastReason: text("last_reason"),
+    createdBy: uuid("created_by").notNull(),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("utilizations_school_id_key").on(t.schoolId, t.id),
+    index("utilizations_school_status_idx").on(t.schoolId, t.status),
+    check("utilizations_form_check", sql`(${t.kind} = 'PEMANFAATAN') = (${t.form} is not null)`),
+    check("utilizations_contribution_check", sql`${t.contribution} >= 0`),
+  ],
+);
+
+export const utilizationLines = pgTable(
+  "utilization_lines",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    utilizationId: uuid("utilization_id").notNull(),
+    assetId: uuid("asset_id").notNull(),
+    /** Bagian/luas yang dimanfaatkan, mis. "48 m² (ruang kantin)" */
+    portion: text("portion"),
+  },
+  (t) => [
+    uniqueIndex("utilization_lines_asset_key").on(t.utilizationId, t.assetId),
+    sameSchool(t, "utilizationId", utilizations, "cascade"),
+    sameSchool(t, "assetId", assets),
+  ],
+);
+
 /** Tabel ber-school_id yang wajib dilindungi RLS (dipakai migrasi & tes isolasi) */
 export const RLS_TABLES = [
   "school_settings",
@@ -1372,4 +1528,9 @@ export const RLS_TABLES = [
   "procurement_lines",
   "kir_snapshots",
   "attachments",
+  "asset_value_changes",
+  "asset_changes",
+  "constructions",
+  "utilizations",
+  "utilization_lines",
 ] as const;

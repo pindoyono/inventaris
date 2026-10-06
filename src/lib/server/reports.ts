@@ -26,7 +26,8 @@ type AsOfRow = {
 
 async function assetsAsOf(tx: Tx, asOf: string): Promise<AsOfRow[]> {
   const rows = await tx.execute(sql`
-    select a.id, a.bmd_code, a.reg_no, a.name, a.brand, a.kib, a.acq_date::text, a.acq_price::text, a.is_intra, a.acquisition, a.attrs, a.note,
+    select a.id, a.bmd_code, a.reg_no, a.name, a.brand, a.kib, a.acq_date::text,
+      (a.acq_price - coalesce((select sum(v.amount) from asset_value_changes v where v.asset_id = a.id and v.date > ${asOf}::date), 0))::text as acq_price, a.is_intra, a.acquisition, a.attrs, a.note,
       (select e.to_room_id from asset_events e where e.asset_id = a.id and e.kind in ('DICATAT','PINDAH') and e.date <= ${asOf}::date order by e.date desc, e.id desc limit 1) as room_id,
       coalesce((select e.to_condition from asset_events e where e.asset_id = a.id and e.to_condition is not null and e.date <= ${asOf}::date order by e.date desc, e.id desc limit 1), a.condition) as condition
     from assets a

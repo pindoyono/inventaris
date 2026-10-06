@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { asc } from "drizzle-orm";
+import { rooms } from "@/db/schema";
 import { withSchool } from "@/lib/tenant";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { todayWita } from "@/lib/server/ledger";
@@ -18,14 +20,30 @@ export default async function CetakKir({ searchParams }: PageProps<"/cetak/kir">
   const today = todayWita();
   const per = printPeriod(sp, today);
   const asOf = per.to < today ? per.to : today;
+  const all = sp.ruang === "semua";
   const roomId = typeof sp.ruang === "string" && /^[0-9a-f-]{36}$/.test(sp.ruang) ? sp.ruang : null;
-  if (!roomId) notFound();
-  const data = await withSchool(s.schoolId, async (tx) => ({ k: await kirData(tx, roomId, asOf), c: await loadPrintContext(tx, s.schoolId) }));
-  if (!data.k) notFound();
-  const { k, c } = data;
+  if (!roomId && !all) notFound();
+  const data = await withSchool(s.schoolId, async (tx) => {
+    const ids = all ? (await tx.select({ id: rooms.id }).from(rooms).orderBy(asc(rooms.name))).map((r) => r.id) : [roomId!];
+    const ks = [];
+    for (const id of ids) {
+      const k = await kirData(tx, id, asOf);
+      if (k && (!all || k.rows.length)) ks.push(k);
+    }
+    return { ks, c: await loadPrintContext(tx, s.schoolId) };
+  });
+  if (!data.ks.length) {
+    if (!all) notFound();
+    return <p style={{ padding: 24 }}>Tidak ada ruangan yang berisi barang.</p>;
+  }
+  return <>{data.ks.map((k, i) => <KirPage key={k.room.id} k={k} c={data.c} label={per.label} asOf={asOf} first={i === 0} />)}</>;
+}
+
+function KirPage({ k, c, label, asOf, first }: { k: NonNullable<Awaited<ReturnType<typeof kirData>>>; c: Awaited<ReturnType<typeof loadPrintContext>>; label: string; asOf: string; first: boolean }) {
+  const per = { label };
   const lokasi = `${k.room.name}${k.room.building ? ` (${k.room.building}${k.room.floor ? `, Lantai ${k.room.floor}` : ""})` : ""}`;
   return (
-    <Halaman judul="KIR" ket="Format II.K.2 — Kartu Inventaris Ruangan" orientasi="lanskap">
+    <Halaman judul="KIR" ket="Format II.K.2 — Kartu Inventaris Ruangan" orientasi="lanskap" bilah={first}>
       <Kop c={c} />
       <Judul title="Kartu Inventaris Ruangan (KIR)" nomor={per.label} />
       <Identitas rows={[["Kode Lokasi", <KodeLokasi key="k" c={c} />], ["Ruangan", lokasi], ["Penanggung Jawab Ruangan", k.room.picName ?? "-"]]} />

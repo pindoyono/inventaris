@@ -19,6 +19,7 @@ export function MaintenanceForm({ today, asset, fundingSources, fundingComponent
   const [, startSearch] = useTransition();
   const [fs, setFs] = useState(v.fundingSourceId ?? "");
   const [finishNow, setFinishNow] = useState(v.finishNow === "on");
+  const [kind, setKind] = useState(v.kind ?? "PERBAIKAN");
   useEffect(() => {
     if (q.trim().length < 2) return;
     const t = setTimeout(() => startSearch(async () => setFound(await searchLoanableAssets(q))), 250);
@@ -50,7 +51,7 @@ export function MaintenanceForm({ today, asset, fundingSources, fundingComponent
       <Card title="Pekerjaan">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Jenis">
-            <Select name="kind" defaultValue={v.kind ?? "PERBAIKAN"}>
+            <Select name="kind" value={kind} onChange={(ev) => setKind(ev.target.value)}>
               <option value="RUTIN">Pemeliharaan rutin</option>
               <option value="PERBAIKAN">Perbaikan</option>
               <option value="PENINGKATAN">Peningkatan (menambah umur/kapasitas)</option>
@@ -87,6 +88,12 @@ export function MaintenanceForm({ today, asset, fundingSources, fundingComponent
                 {Object.entries(CONDITION_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </Select>
             </Field>
+            {kind === "PENINGKATAN" && (
+              <label className="flex items-start gap-2 text-sm sm:col-span-2">
+                <input type="checkbox" name="capitalize" defaultChecked={v.capitalize === "on"} className="mt-0.5 size-4 accent-teal-700" />
+                <span>Kapitalisasi: tambahkan biaya ke nilai aset. <span className="text-slate-500">Untuk peningkatan yang menambah umur, kapasitas, atau mutu, sesuai batas kapitalisasi pemeliharaan dalam Perkada.</span></span>
+              </label>
+            )}
           </div>
         )}
       </Card>

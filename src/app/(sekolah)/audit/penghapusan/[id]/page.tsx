@@ -1,5 +1,6 @@
 import { Attachments } from "@/components/lampiran/attachments";
 import type { Metadata } from "next";
+import { TRANSFER_FORM_LABEL } from "@/lib/utilization-shared";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
@@ -43,7 +44,7 @@ export default async function UsulanDetailPage({ params, searchParams }: PagePro
     return (
       <div className="max-w-4xl">
         <PageTitle title="Ubah draf usulan" back={{ href: `/audit/penghapusan/${id}`, label: "Usulan" }} />
-        <DisposalForm today={todayWita()} initial={{ id, date: d.date, note: d.note ?? "", lines: lines.map(({ l, a, room }) => ({ id: a.id, name: a.name, brand: a.brand, bmdCode: a.bmdCode, regNo: a.regNo, condition: a.condition, status: a.status, acqDate: a.acqDate, acqPrice: a.acqPrice, room, reason: l.reason, followUp: l.followUp, policeLetter: l.policeLetter ?? "", note: l.note ?? "" })) }} />
+        <DisposalForm today={todayWita()} initial={{ id, date: d.date, note: d.note ?? "", lines: lines.map(({ l, a, room }) => ({ id: a.id, name: a.name, brand: a.brand, bmdCode: a.bmdCode, regNo: a.regNo, condition: a.condition, status: a.status, acqDate: a.acqDate, acqPrice: a.acqPrice, room, reason: l.reason, followUp: l.followUp, transferForm: l.transferForm, policeLetter: l.policeLetter ?? "", note: l.note ?? "" })) }} />
       </div>
     );
 
@@ -72,7 +73,7 @@ export default async function UsulanDetailPage({ params, searchParams }: PagePro
                   <td className="px-3 py-2">{a.acqDate.slice(0, 4)}</td>
                   <td className="px-3 py-2">{CONDITION_LABEL[a.condition]} · {room ?? "—"}</td>
                   <td className="px-3 py-2 text-right">{fmtRp(a.acqPrice)}</td>
-                  <td className="px-3 py-2">{DISPOSAL_REASON_LABEL[l.reason]}{(l.reason === "RUSAK_BERAT" || l.reason === "USANG") && <span className="block text-xs text-slate-500">{l.followUp === "PEMINDAHTANGANAN" ? "→ pemindahtanganan" : "→ pemusnahan"}</span>}{l.policeLetter && <span className="block text-xs text-slate-500">Surat polisi: {l.policeLetter}</span>}{l.note && <span className="block text-xs text-slate-500">{l.note}</span>}</td>
+                  <td className="px-3 py-2">{DISPOSAL_REASON_LABEL[l.reason]}{(l.reason === "RUSAK_BERAT" || l.reason === "USANG") && <span className="block text-xs text-slate-500">{l.followUp === "PEMINDAHTANGANAN" ? `→ pemindahtanganan${l.transferForm ? ` (${TRANSFER_FORM_LABEL[l.transferForm].toLowerCase()})` : ""}` : "→ pemusnahan"}</span>}{l.policeLetter && <span className="block text-xs text-slate-500">Surat polisi: {l.policeLetter}</span>}{l.note && <span className="block text-xs text-slate-500">{l.note}</span>}</td>
                   <td className="px-3 py-2 text-xs">{a.status.toLowerCase().replaceAll("_", " ")}</td>
                 </tr>
               );
@@ -92,6 +93,7 @@ export default async function UsulanDetailPage({ params, searchParams }: PagePro
       />
       {d.number && <a href={`/cetak/penghapusan/${d.id}`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak surat usulan & daftar barang</a>}
       {d.number && <a href={`/cetak/penghapusan/${d.id}?format=rkbmd`} target="_blank" rel="noreferrer" className="ml-2 inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak RKBMD rencana penghapusan (Permendagri 7/2024)</a>}
+      {d.number && lines.some(({ l }) => l.followUp === "PEMINDAHTANGANAN") && <a href={`/cetak/penghapusan/${d.id}?format=rkbmd-pemindahtanganan`} target="_blank" rel="noreferrer" className="ml-2 inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak RKBMD rencana pemindahtanganan (A.3)</a>}
     </div>
   );
 }

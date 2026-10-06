@@ -17,9 +17,16 @@ import { fmtRp } from "@/lib/decimal";
 import { PageTitle } from "@/components/ui";
 import { RegisterLabel } from "@/components/register-label";
 import { QuickActions } from "./quick-actions";
+import { Classification } from "./classification";
+import { assetHistory, openFindings } from "@/lib/server/asset-changes";
+import { activeUtilizationOf } from "@/lib/server/utilization";
+import { loadAssetFormOptions } from "../data";
+import { constructions } from "@/db/schema";
+import { UTIL_FORM_LABEL, UTIL_KIND_LABEL, UTIL_STATUS_LABEL } from "@/lib/utilization-shared";
 
 export const metadata: Metadata = { title: "Aset" };
 const fmtDate = (d: string) => `${d.slice(8, 10)}-${d.slice(5, 7)}-${d.slice(0, 4)}`;
+const VALUE_LABEL = { PEMBAYARAN_KDP: "Pembayaran KDP/renovasi", KAPITALISASI: "Kapitalisasi pemeliharaan", KOREKSI: "Koreksi nilai" } as const;
 const EVENT_LABEL = { DICATAT: "Dicatat", PINDAH: "Pindah ruangan", KONDISI: "Ubah kondisi", STATUS: "Ubah status", UBAH_DATA: "Ubah data" } as const;
 
 export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">) {
@@ -50,7 +57,12 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
     const roomOpts = await tx.select({ id: rooms.id, name: rooms.name }).from(rooms).orderBy(asc(rooms.name));
     const maint = await tx.select().from(maintenances).where(eq(maintenances.assetId, id)).orderBy(desc(maintenances.startDate));
     const [loc] = await tx.select({ name: localBmdCodes.name }).from(localBmdCodes).where(eq(localBmdCodes.code, r.a.bmdCode));
-    return { ...r, events, roomOpts, maint, parts: await loadRegisterParts(tx, s.schoolId), localName: loc?.name };
+    const hist = await assetHistory(tx, id);
+    const findings = await openFindings(tx, id);
+    const util = await activeUtilizationOf(tx, id);
+    const [con] = await tx.select({ id: constructions.id, kind: constructions.kind, status: constructions.status }).from(constructions).where(eq(constructions.assetId, id));
+    const favorites = hasAnyRole(s.roles, ["ADMIN", "PETUGAS"]) ? (await loadAssetFormOptions(tx)).favorites : [];
+    return { ...r, events, roomOpts, maint, parts: await loadRegisterParts(tx, s.schoolId), localName: loc?.name, hist, findings, util, con, favorites };
   });
   if (!data) notFound();
   const { a, parts } = data;
@@ -75,6 +87,8 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
               {data.vendor && (<><dt className="text-slate-500">Penyedia</dt><dd>{data.vendor}</dd></>)}
               {a.refNumber && (<><dt className="text-slate-500">No. nota/BAST</dt><dd>{a.refNumber}</dd></>)}
               {data.fs && (<><dt className="text-slate-500">Sumber dana</dt><dd>{data.fs}{data.fc ? ` — ${data.fc}` : ""}</dd></>)}
+              {data.con && (<><dt className="text-slate-500">{data.con.kind === "KDP" ? "KDP" : "Renovasi"}</dt><dd><Link href={`/aset/kdp/${data.con.id}`} className="text-teal-700 hover:underline">Lihat pekerjaan ({data.con.status.toLowerCase()})</Link></dd></>)}
+              {data.util && (<><dt className="text-slate-500">Pemanfaatan</dt><dd><Link href={`/aset/pemanfaatan/${data.util.id}`} className="text-teal-700 hover:underline">{data.util.form ? UTIL_FORM_LABEL[data.util.form] : UTIL_KIND_LABEL[data.util.kind]}{data.util.partner ? ` — ${data.util.partner}` : ""}</Link> <span className="text-slate-500">({UTIL_STATUS_LABEL[data.util.status].toLowerCase()}{data.util.endDate ? ` s.d. ${fmtDate(data.util.endDate)}` : ""})</span></dd></>)}
               <dt className="text-slate-500">Ruangan</dt><dd>{data.room ?? "Belum ditempatkan"}</dd>
               {data.unit && (<><dt className="text-slate-500">Unit</dt><dd>{data.unit}</dd></>)}
               <dt className="text-slate-500">Kondisi</dt><dd>{CONDITION_LABEL[a.condition]}</dd>
@@ -107,6 +121,28 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
             </ul>
           </section>
 
+          {(data.hist.values.length > 0 || data.hist.changes.length > 0) && (
+            <section>
+              <h2 className="mb-2 font-semibold">Perubahan nilai & klasifikasi</h2>
+              <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white text-sm">
+                {data.hist.values.map((v) => (
+                  <li key={`v${v.id}`} className="flex flex-wrap justify-between gap-2 px-4 py-2">
+                    <span><strong>{VALUE_LABEL[v.kind]}</strong> {v.amount.startsWith("-") ? "−" : "+"}Rp{fmtRp(v.amount.replace("-", ""))}{v.docNo ? ` · ${v.docNo}` : ""}{v.note && <span className="text-slate-600"> — {v.note}</span>}</span>
+                    <span className="text-slate-500">{fmtDate(v.date)} · {v.createdByName ?? "—"}</span>
+                  </li>
+                ))}
+                {data.hist.changes.map((c) => (
+                  <li key={`c${c.id}`} className="flex flex-wrap justify-between gap-2 px-4 py-2">
+                    <span><strong>{c.kind === "REKLASIFIKASI" ? "Reklasifikasi" : "Koreksi"}</strong> {String(c.before.bmdCode) !== String(c.after.bmdCode) && <span className="font-mono text-xs">{String(c.before.bmdCode)} → {String(c.after.bmdCode)}</span>}
+                      {c.before.isIntra !== c.after.isIntra && ` · ${c.after.isIntra ? "ekstra → intra" : "intra → ekstra"}`}
+                      <span className="text-slate-600"> — {c.reason}{c.docNo ? ` (${c.docNo})` : ""}{c.inventoryLineId ? " · tindak lanjut inventarisasi" : ""}</span></span>
+                    <span className="text-slate-500">{fmtDate(c.date)} · {c.createdByName ?? "—"}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <Attachments schoolId={s.schoolId} entity="aset" entityId={a.id} path={`/aset/${a.id}`} canEdit={canEdit} title="Foto & dokumen" />
 
           <section>
@@ -135,6 +171,9 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
             <p className="mt-2 text-xs text-slate-500">QR membuka halaman barang ini.</p>
             {canEdit && <a href={`/cetak/label?id=${a.id}`} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-medium text-teal-700 hover:underline">Cetak label</a>}
           </section>
+          {canEdit && a.status !== "DIHAPUS" && !(data.con && data.con.status !== "SELESAI") && (
+            <Classification id={a.id} today={todayWita()} findings={data.findings} favorites={data.favorites} acqPrice={fmtRp(a.acqPrice)} acqDate={a.acqDate} acquisition={a.acquisition} />
+          )}
           {canEdit && a.status !== "DIHAPUS" && <QuickActions id={a.id} roomId={a.roomId} condition={a.condition} rooms={data.roomOpts} today={todayWita()} idle={a.idle} />}
         </div>
       </div>

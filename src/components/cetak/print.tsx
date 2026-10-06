@@ -4,10 +4,10 @@ import { fmtNip } from "@/lib/server/print";
 import { PrintBar } from "./print-bar";
 
 /** Satu halaman A4 + bilah petunjuk di layar */
-export function Halaman({ judul, ket, orientasi = "potret", rapat, children }: { judul: string; ket?: string; orientasi?: "potret" | "lanskap"; rapat?: boolean; children: ReactNode }) {
+export function Halaman({ judul, ket, orientasi = "potret", rapat, bilah = true, children }: { judul: string; ket?: string; orientasi?: "potret" | "lanskap"; rapat?: boolean; bilah?: boolean; children: ReactNode }) {
   return (
     <>
-      <PrintBar judul={judul} ket={ket} />
+      {bilah && <PrintBar judul={judul} ket={ket} />}
       <div className={`halaman a4-${orientasi}${rapat ? " rapat" : ""}`}>{children}</div>
     </>
   );

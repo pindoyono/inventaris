@@ -10,6 +10,7 @@ import { CONDITION_LABEL, KIB_LABEL } from "@/lib/assets-shared";
 import { fmtRp } from "@/lib/decimal";
 import { PageTitle } from "@/components/ui";
 import { AssetTable } from "./asset-table";
+import { AsetTabs } from "./tabs";
 
 export const metadata: Metadata = { title: "Aset" };
 const PER_PAGE = 100;
@@ -69,6 +70,7 @@ export default async function AsetPage({ searchParams }: PageProps<"/aset">) {
   return (
     <div>
       <PageTitle title="Aset tetap" desc="Barang inventaris per unit dengan kode register BMD. Barang di bawah batas kapitalisasi tetap dicatat sebagai ekstrakomptabel." />
+      <AsetTabs active="/aset" />
       {batch && (
         <p className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900">
           {data.sum.n} unit baru dicatat. <a href={`/cetak/label?batch=${batch}`} target="_blank" rel="noreferrer" className="font-medium underline">Cetak label</a> · <Link href="/aset" className="underline">Tampilkan semua aset</Link>

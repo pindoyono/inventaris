@@ -8,12 +8,14 @@ import { assetEvents, assets } from "@/db/schema";
 import { runSchoolAction, type FormState } from "@/lib/server/action";
 import { logActivity } from "@/lib/server/activity";
 import { createAssets, moveAssets, setCondition, setIdle } from "@/lib/server/assets";
+import { correctAsset, reclassifyAsset } from "@/lib/server/asset-changes";
 import { todayWita } from "@/lib/server/ledger";
 import { searchCodes } from "@/lib/server/code-search";
 import { requireSchoolUser } from "@/lib/tenant";
 import { KIB_ATTRS, kibOfCode } from "@/lib/assets-shared";
 import { normalizeIdNumber, parseDec, toDec } from "@/lib/decimal";
 import { fieldErrors, formToObject } from "@/lib/validations";
+import { isReservedConstructionCode } from "@/lib/construction-shared";
 
 const ROLES = ["ADMIN", "PETUGAS"] as const;
 
@@ -67,6 +69,7 @@ export async function createAssetsAction(_prev: FormState, fd: FormData): Promis
   const parsed = createSchema.safeParse(raw);
   if (!parsed.success) return { values: raw, errors: fieldErrors(parsed.error) };
   const d = parsed.data;
+  if (isReservedConstructionCode(d.bmdCode)) return { values: raw, errors: { bmdCode: "KDP/aset dalam renovasi dicatat lewat menu Aset › KDP & Renovasi" } };
   let target = "";
   const res = await runSchoolAction([...ROLES], async (tx, s) => {
     const r = await createAssets(tx, s, { ...d, acqPrice: toDec(parseDec(d.acqPrice)), attrs: readAttrs(raw, kibOfCode(d.bmdCode)) });
@@ -142,6 +145,48 @@ export async function idleAction(input: { id: string; idle: boolean; plan?: stri
     await setIdle(tx, s, p.data.id, p.data.idle, p.data.plan ?? null, p.data.note?.trim() || null);
     await logActivity(tx, s, p.data.idle ? "TIDAK_DIGUNAKAN" : "DIGUNAKAN_KEMBALI", "aset", p.data.id, null, p.data);
     return { ok: p.data.idle ? "Ditandai tidak digunakan untuk tugas & fungsi." : "Ditandai digunakan kembali." };
+  });
+  revalidatePath("/aset", "layout");
+  return res;
+}
+
+const changeBase = {
+  assetId: z.uuid(),
+  date,
+  reason: z.string().trim().min(5, "Isi alasan (min. 5 karakter)").max(500),
+  docNo: optText(100),
+  inventoryLineId: optUuid,
+};
+
+export async function reclassAction(input: Record<string, string>): Promise<FormState> {
+  const p = z
+    .object({ ...changeBase, bmdCode: z.string().regex(/^1\.[35]\.\d\.[\d.]+$/, "Pilih kode barang"), intra: z.enum(["auto", "intra", "ekstra"]), name: optText(200) })
+    .safeParse(input);
+  if (!p.success) return { errors: fieldErrors(p.error) };
+  const res = await runSchoolAction([...ROLES], async (tx, s) => {
+    const r = await reclassifyAsset(tx, s, p.data);
+    await logActivity(tx, s, "REKLASIFIKASI", "aset", p.data.assetId, r.before, r.after);
+    return { ok: "Reklasifikasi dicatat." };
+  });
+  revalidatePath("/aset", "layout");
+  return res;
+}
+
+export async function correctAction(input: Record<string, string>): Promise<FormState> {
+  const p = z
+    .object({
+      ...changeBase,
+      acqPrice: z.string().optional().transform((v) => (v?.trim() ? normalizeIdNumber(v) : null)).refine((v) => v === null || /^\d+(\.\d{1,2})?$/.test(v), "Nilai tidak valid"),
+      acqDate: z.union([z.literal(""), date]).optional().transform((v) => v || null),
+      acquisition: z.union([z.literal(""), z.enum(["PEMBELIAN", "HIBAH", "PRODUKSI", "INVENTARISASI", "LAINNYA"])]).optional().transform((v) => v || null),
+    })
+    .safeParse(input);
+  if (!p.success) return { errors: fieldErrors(p.error) };
+  const d = p.data;
+  const res = await runSchoolAction([...ROLES], async (tx, s) => {
+    const r = await correctAsset(tx, s, { ...d, acqPrice: d.acqPrice === null ? null : toDec(parseDec(d.acqPrice)) });
+    await logActivity(tx, s, "KOREKSI", "aset", d.assetId, r.before, r.after);
+    return { ok: "Koreksi dicatat." };
   });
   revalidatePath("/aset", "layout");
   return res;

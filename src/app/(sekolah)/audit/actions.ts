@@ -96,10 +96,10 @@ export async function startInventoryAction(_p: FormState, fd: FormData): Promise
 
 export async function inventoryAction(
   id: string,
-  input: { action: "SIMPAN" | "SELESAI" | "HAPUS_EXTRA" | "BATAL"; checks?: { lineId: string; found: boolean | null; condition?: string | null; note?: string }[]; extras?: { name: string; qty: number; note?: string }[]; lineId?: string },
+  input: { action: "SIMPAN" | "SELESAI" | "HAPUS_EXTRA" | "BATAL"; checks?: { lineId: string; found: boolean | null; condition?: string | null; note?: string; followUp?: string | null }[]; extras?: { name: string; qty: number; note?: string }[]; lineId?: string },
 ): Promise<FormState> {
   if (!uuid.safeParse(id).success) return { errors: { _form: "Tidak valid" } };
-  const checks = z.array(z.object({ lineId: uuid, found: z.boolean().nullable(), condition: cond.nullable().optional(), note: z.string().max(200).optional() })).safeParse(input.checks ?? []);
+  const checks = z.array(z.object({ lineId: uuid, found: z.boolean().nullable(), condition: cond.nullable().optional(), note: z.string().max(200).optional(), followUp: z.enum(["REKLASIFIKASI", "KOREKSI"]).nullable().optional() })).safeParse(input.checks ?? []);
   if (!checks.success) return { errors: { _form: "Data pemeriksaan tidak valid" } };
   const res = await runSchoolAction([...AUDIT], async (tx, s) => {
     if (input.action === "HAPUS_EXTRA") { await removeExtra(tx, s, id, uuid.parse(input.lineId)); return { ok: "Dihapus." }; }
@@ -122,7 +122,7 @@ const disposalSchema = z.object({
   date,
   note: z.string().max(500).optional().transform((v) => v?.trim() || null),
   lines: z
-    .array(z.object({ assetId: uuid, reason: z.enum(["RUSAK_BERAT", "USANG", "KECURIAN", "HILANG", "TERBAKAR_SUSUT", "KAHAR", "INVENTARISASI"]), followUp: z.enum(["PEMUSNAHAN", "PEMINDAHTANGANAN"]).optional(), policeLetter: z.string().max(100).optional(), note: z.string().max(200).optional() }))
+    .array(z.object({ assetId: uuid, reason: z.enum(["RUSAK_BERAT", "USANG", "KECURIAN", "HILANG", "TERBAKAR_SUSUT", "KAHAR", "INVENTARISASI"]), followUp: z.enum(["PEMUSNAHAN", "PEMINDAHTANGANAN"]).optional(), transferForm: z.enum(["PENJUALAN", "TUKAR_MENUKAR", "HIBAH", "PENYERTAAN_MODAL"]).nullable().optional(), policeLetter: z.string().max(100).optional(), note: z.string().max(200).optional() }))
     .min(1, "Pilih minimal satu barang"),
 });
 export async function saveDisposalAction(payload: z.input<typeof disposalSchema>): Promise<FormState> {
@@ -179,6 +179,7 @@ const maintSchema = z.object({
   fundingSourceId: z.union([z.literal(""), uuid]).optional().transform((v) => v || null),
   fundingComponentId: z.union([z.literal(""), uuid]).optional().transform((v) => v || null),
   finishNow: z.literal("on").optional(),
+  capitalize: z.literal("on").optional(),
   endDate: z.union([z.literal(""), date]).optional(),
   conditionAfter: z.union([z.literal(""), cond]).optional(),
 });
@@ -189,7 +190,7 @@ export async function recordMaintenanceAction(_p: FormState, fd: FormData): Prom
   const d = p.data;
   if (d.finishNow && (!d.endDate || !d.conditionAfter)) return { values: raw, errors: { endDate: "Isi tanggal selesai & kondisi sesudah" } };
   const res = await runSchoolAction([...AUDIT], async (tx, s) => {
-    const id = await recordMaintenance(tx, s, { ...d, finish: d.finishNow ? { endDate: d.endDate!, conditionAfter: d.conditionAfter as "BAIK" } : null });
+    const id = await recordMaintenance(tx, s, { ...d, capitalize: !!d.finishNow && !!d.capitalize, finish: d.finishNow ? { endDate: d.endDate!, conditionAfter: d.conditionAfter as "BAIK" } : null });
     await logActivity(tx, s, "TAMBAH", "pemeliharaan", id, null, d);
     return { ok: "ok" };
   });
@@ -198,13 +199,13 @@ export async function recordMaintenanceAction(_p: FormState, fd: FormData): Prom
   redirect(`/aset/${d.assetId}`);
 }
 
-export async function finishMaintenanceAction(id: string, input: { endDate: string; conditionAfter: string; cost?: string }): Promise<FormState> {
-  const p = z.object({ endDate: date, conditionAfter: cond, cost: z.string().optional() }).safeParse(input);
+export async function finishMaintenanceAction(id: string, input: { endDate: string; conditionAfter: string; cost?: string; capitalize?: boolean }): Promise<FormState> {
+  const p = z.object({ endDate: date, conditionAfter: cond, cost: z.string().optional(), capitalize: z.boolean().optional() }).safeParse(input);
   if (!p.success || !uuid.safeParse(id).success) return { errors: { _form: "Isi tanggal selesai & kondisi" } };
   const res = await runSchoolAction([...AUDIT], async (tx, s) => {
     await finishMaintenance(tx, s, id, p.data);
     await logActivity(tx, s, "SELESAI", "pemeliharaan", id, null, p.data);
-    return { ok: "Pemeliharaan selesai; aset kembali digunakan." };
+    return { ok: p.data.capitalize ? "Selesai; biaya ditambahkan ke nilai aset." : "Pemeliharaan selesai; aset kembali digunakan." };
   });
   done("/audit");
   return res;

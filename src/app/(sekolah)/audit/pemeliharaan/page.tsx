@@ -45,7 +45,7 @@ export default async function PemeliharaanPage() {
                   <span><Link href={`/aset/${m.assetId}`} className="font-medium text-teal-800 hover:underline">{name}</Link> <span className="font-mono text-xs text-slate-500">{String(regNo).padStart(6, "0")}</span> — {m.description}
                     <span className="block text-xs text-slate-500">{MAINT_KIND_LABEL[m.kind]} · mulai {fmtDate(m.startDate)}{m.executor ? ` · ${m.executor}` : ""}</span></span>
                 </div>
-                {canEdit && <FinishMaintenance id={m.id} today={todayWita()} cost={String(Number(m.cost))} condition={condition} />}
+                {canEdit && <FinishMaintenance id={m.id} today={todayWita()} cost={String(Number(m.cost))} condition={condition} upgrade={m.kind === "PENINGKATAN"} />}
               </li>
             ))}
           </ul>

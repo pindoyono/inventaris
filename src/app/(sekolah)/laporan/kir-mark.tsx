@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { markKirPrinted } from "./kir-actions";
+import { markAllKirPrinted, markKirPrinted } from "./kir-actions";
 
 export function KirMark({ roomId, reasons }: { roomId: string; reasons: string[] }) {
   const [msg, setMsg] = useState("");
@@ -13,5 +13,17 @@ export function KirMark({ roomId, reasons }: { roomId: string; reasons: string[]
         className="rounded-md border border-slate-300 bg-white px-2 py-1 hover:bg-slate-50">Tandai sudah dicetak & ditempel</button>
       {msg && <span className="text-slate-600">{msg}</span>}
     </div>
+  );
+}
+
+export function KirMarkAll({ count }: { count: number }) {
+  const [msg, setMsg] = useState("");
+  const [pending, start] = useTransition();
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <button type="button" disabled={pending || !count} onClick={() => { if (confirm(`Tandai ${count} KIR yang perlu diperbarui sudah dicetak rangkap 2 & ditempel?`)) start(async () => { const r = await markAllKirPrinted(); setMsg(r.errors ? Object.values(r.errors)[0] : r.ok ?? ""); }); }}
+        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50">Tandai semua sudah dicetak ({count})</button>
+      {msg && <span className="text-slate-600">{msg}</span>}
+    </span>
   );
 }
