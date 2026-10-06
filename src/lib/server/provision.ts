@@ -86,7 +86,7 @@ export async function registerSchool(input: RegistrationInput) {
       after: { npsn: input.npsn, name: input.name, level: input.level },
     });
 
-    return { schoolId };
+    return { schoolId, regencyName: regency.name };
   });
 }
 

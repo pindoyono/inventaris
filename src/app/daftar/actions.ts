@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { fieldErrors, formToObject, registrationSchema, type FieldErrors } from "@/lib/validations";
 import { NpsnTakenError, RegionError, registerSchool } from "@/lib/server/provision";
 import { clientIp, rateLimit } from "@/lib/server/request";
+import { notifyRegistration } from "@/lib/server/notify";
 
 export type RegisterState = { errors?: FieldErrors; values?: Record<string, string> };
 
@@ -22,7 +23,9 @@ export async function registerAction(_prev: RegisterState, fd: FormData): Promis
   if (!parsed.success) return { values, errors: fieldErrors(parsed.error) };
 
   try {
-    await registerSchool(parsed.data);
+    const { regencyName } = await registerSchool(parsed.data);
+    // Setelah transaksi tersimpan; kegagalan email tidak membatalkan pendaftaran
+    await notifyRegistration({ ...parsed.data, regencyName });
   } catch (e) {
     if (e instanceof NpsnTakenError)
       return { values, errors: { npsn: "NPSN ini sudah terdaftar. Hubungi admin sekolah Anda atau pengelola platform." } };

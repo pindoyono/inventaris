@@ -5,6 +5,7 @@ import { count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { platformLogs, regions, schools } from "@/db/schema";
 import { LEVEL_LABEL } from "@/lib/validations";
+import { Alert } from "@/components/ui";
 import { StatusForm } from "./status-form";
 
 export const metadata: Metadata = { title: "Pengelola Platform", robots: { index: false } };
@@ -45,6 +46,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
 
   return (
     <div className="space-y-6">
+      {typeof sp.hasil === "string" && <Alert tone="success">{sp.hasil.slice(0, 300)}</Alert>}
       <nav className="flex flex-wrap gap-2">
         {STATUSES.map(([s, label]) => (
           <Link

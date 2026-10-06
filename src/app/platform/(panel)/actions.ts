@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { platformLogs, schools } from "@/db/schema";
@@ -8,6 +9,7 @@ import { requirePlatformAdmin } from "@/lib/tenant";
 import { clientIp } from "@/lib/server/request";
 import { signOut } from "@/auth";
 import { formToObject, schoolStatusChangeSchema } from "@/lib/validations";
+import { notifyStatusChange } from "@/lib/server/notify";
 
 export type StatusState = { error?: string; ok?: string };
 
@@ -41,11 +43,16 @@ export async function changeSchoolStatus(_prev: StatusState, fd: FormData): Prom
       detail: { from: before.status, to: status, note: note ?? null, npsn: before.npsn },
       ip,
     });
-    return { ok: `${before.shortName}: ${before.status} → ${status}` };
+    return { ok: `${before.shortName}: ${before.status} → ${status}`, school: before };
   });
 
   revalidatePath("/platform");
-  return result;
+  if (!("school" in result) || !result.school) return result;
+  const { school } = result;
+  const emailed = await notifyStatusChange(school, status, note ?? null, status === "ACTIVE" && !school.approvedAt);
+  const msg = result.ok + (school.contactEmail ? (emailed ? " · email pemberitahuan terkirim" : " · email GAGAL terkirim (cek journal)") : " · tanpa email (PJ tidak mengisi email)");
+  // Kartu sekolah pindah tab setelah status berubah, jadi hasilnya ditampilkan sebagai banner halaman
+  redirect(`/platform?status=${school.status}&hasil=${encodeURIComponent(msg)}`);
 }
 
 export async function platformSignOut() {
