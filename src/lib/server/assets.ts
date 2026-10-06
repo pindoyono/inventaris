@@ -42,6 +42,7 @@ export type NewAssetsInput = {
   qty: number;
   /** Nomor register pertama (untuk menyamakan dengan register Dinas); kosong = lanjut dari terakhir */
   startRegNo: number | null;
+  procurementId?: string | null;
 };
 
 /** Catat sejumlah unit aset sekaligus; tiap unit mendapat nomor register berurutan. */

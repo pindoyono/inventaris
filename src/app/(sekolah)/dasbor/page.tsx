@@ -7,6 +7,7 @@ import { Alert, Card } from "@/components/ui";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { pendingForUser } from "@/lib/server/requests";
+import { pendingProposals } from "@/lib/server/proposals";
 
 export const metadata: Metadata = { title: "Dasbor" };
 
@@ -20,7 +21,7 @@ export default async function DasborPage({ searchParams }: PageProps<"/dasbor">)
       tx.select({ n: count() }).from(units),
       tx.select({ n: count() }).from(warehouses),
     ]);
-    return { users: u.n, rooms: r.n, units: un.n, warehouses: w.n, pending: await pendingForUser(tx, s) };
+    return { users: u.n, rooms: r.n, units: un.n, warehouses: w.n, pending: await pendingForUser(tx, s), proposals: await pendingProposals(tx, s) };
   });
 
   return (
@@ -34,6 +35,11 @@ export default async function DasborPage({ searchParams }: PageProps<"/dasbor">)
         <Link href="/permintaan?tab=tugas" className="block rounded-lg border border-teal-600 bg-teal-50 p-4 hover:bg-teal-100">
           <span className="text-2xl font-semibold text-teal-900">{stats.pending}</span>{" "}
           <span className="text-teal-900">permintaan barang menunggu tindakan Anda →</span>
+        </Link>
+      )}
+      {stats.proposals > 0 && (
+        <Link href="/usulan?tab=tugas" className="block rounded-lg border border-violet-500 bg-violet-50 p-4 hover:bg-violet-100">
+          <span className="text-2xl font-semibold text-violet-900">{stats.proposals}</span> <span className="text-violet-900">usulan kebutuhan menunggu verifikasi/persetujuan Anda →</span>
         </Link>
       )}
       <div className="grid gap-4 sm:grid-cols-4">

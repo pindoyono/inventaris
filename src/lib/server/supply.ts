@@ -53,6 +53,7 @@ export type DocInput = {
   note?: string | null;
   requestId?: string | null;
   opnameId?: string | null;
+  procurementId?: string | null;
   lines: DocLineInput[];
 };
 

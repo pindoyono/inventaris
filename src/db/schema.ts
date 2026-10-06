@@ -73,6 +73,9 @@ export const disposalReason = pgEnum("disposal_reason", ["RUSAK_BERAT", "USANG",
 export const disposalFollowUp = pgEnum("disposal_follow_up", ["PEMUSNAHAN", "PEMINDAHTANGANAN"]);
 /** Rencana atas BMD tidak digunakan untuk tugas & fungsi (Format C.3) */
 export const idlePlan = pgEnum("idle_plan", ["PENGGUNAAN", "PEMANFAATAN", "PEMINDAHTANGANAN"]);
+export const proposalStatus = pgEnum("proposal_status", ["DRAF", "DIAJUKAN", "DIVERIFIKASI", "DISETUJUI", "SELESAI", "DITOLAK", "DIBATALKAN"]);
+export const procurementStatus = pgEnum("procurement_status", ["DRAF", "DIPESAN", "DITERIMA_SEBAGIAN", "DITERIMA", "DIBATALKAN"]);
+export const goodsKind = pgEnum("goods_kind", ["PERSEDIAAN", "ASET"]);
 export const maintenanceKind = pgEnum("maintenance_kind", ["RUTIN", "PERBAIKAN", "PENINGKATAN"]);
 export const maintenanceStatus = pgEnum("maintenance_status", ["BERJALAN", "SELESAI"]);
 /** Jenis dokumen stok persediaan */
@@ -538,6 +541,8 @@ export const stockDocs = pgTable(
     requestId: uuid("request_id"),
     /** Stock opname asal (dokumen penyesuaian hasil opname) */
     opnameId: uuid("opname_id"),
+    /** Pengadaan asal (penerimaan hasil pengadaan) */
+    procurementId: uuid("procurement_id"),
     createdBy: uuid("created_by"),
     postedBy: uuid("posted_by"),
     postedAt: timestamp("posted_at", { withTimezone: true }),
@@ -704,6 +709,8 @@ export const assets = pgTable(
     idleNote: text("idle_note"),
     /** Unit yang dicatat bersamaan (mis. 30 kursi satu pembelian) */
     batchId: uuid("batch_id").notNull(),
+    /** Pengadaan asal (bila dicatat dari penerimaan pengadaan) */
+    procurementId: uuid("procurement_id"),
     qrToken: varchar("qr_token", { length: 32 }).notNull().default(sql`encode(gen_random_bytes(12), 'hex')`),
     note: text("note"),
     createdBy: uuid("created_by"),
@@ -1093,6 +1100,171 @@ export const maintenances = pgTable(
   ],
 );
 
+// ─────────────────────────────────────────────────────────── usulan kebutuhan & pengadaan
+
+/** Pagu belanja barang per unit × sumber dana × tahun anggaran */
+export const budgetCeilings = pgTable(
+  "budget_ceilings",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    year: smallint("year").notNull(),
+    unitId: uuid("unit_id").notNull(),
+    fundingSourceId: uuid("funding_source_id").notNull(),
+    amount: money("amount").notNull(),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("budget_ceilings_key").on(t.schoolId, t.year, t.unitId, t.fundingSourceId),
+    sameSchool(t, "unitId", units),
+    sameSchool(t, "fundingSourceId", fundingSources),
+    check("budget_ceilings_amount_check", sql`${t.amount} >= 0`),
+  ],
+);
+
+/** Usulan kebutuhan barang dari unit */
+export const proposals = pgTable(
+  "proposals",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    number: varchar("number", { length: 40 }),
+    status: proposalStatus("status").notNull().default("DRAF"),
+    unitId: uuid("unit_id").notNull(),
+    year: smallint("year").notNull(),
+    fundingSourceId: uuid("funding_source_id"),
+    fundingComponentId: uuid("funding_component_id"),
+    title: text("title").notNull(),
+    levels: smallint("levels"),
+    requestedBy: uuid("requested_by").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    verifiedBy: uuid("verified_by"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    approvedBy: uuid("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    lastReason: text("last_reason"),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("proposals_school_id_key").on(t.schoolId, t.id),
+    uniqueIndex("proposals_school_number_key").on(t.schoolId, t.number),
+    index("proposals_school_status_idx").on(t.schoolId, t.status),
+    sameSchool(t, "unitId", units),
+    sameSchool(t, "fundingSourceId", fundingSources),
+    sameSchool(t, "fundingComponentId", fundingComponents),
+  ],
+);
+
+export const proposalLines = pgTable(
+  "proposal_lines",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    proposalId: uuid("proposal_id").notNull(),
+    lineNo: smallint("line_no").notNull(),
+    kind: goodsKind("kind").notNull(),
+    /** Barang persediaan yang sudah ada (opsional) */
+    itemId: uuid("item_id"),
+    /** Kode barang BMD (aset) bila diketahui */
+    bmdCode: varchar("bmd_code", { length: 32 }),
+    description: text("description").notNull(),
+    uom: varchar("uom", { length: 30 }).notNull(),
+    qty: qty("qty").notNull(),
+    estPrice: money("est_price").notNull(),
+    reason: text("reason"),
+    priority: smallint("priority").notNull().default(2),
+    qtyApproved: qty("qty_approved"),
+  },
+  (t) => [
+    uniqueIndex("proposal_lines_line_key").on(t.proposalId, t.lineNo),
+    uniqueIndex("proposal_lines_school_id_key").on(t.schoolId, t.id),
+    sameSchool(t, "proposalId", proposals, "cascade"),
+    sameSchool(t, "itemId", supplyItems),
+    check("proposal_lines_check", sql`${t.qty} > 0 and ${t.estPrice} >= 0 and (${t.qtyApproved} is null or ${t.qtyApproved} >= 0) and ${t.priority} between 1 and 3`),
+  ],
+);
+
+/** Jejak alur usulan — hanya INSERT */
+export const proposalEvents = pgTable(
+  "proposal_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    schoolId: schoolId(),
+    proposalId: uuid("proposal_id").notNull(),
+    action: varchar("action", { length: 20 }).notNull(),
+    fromStatus: proposalStatus("from_status"),
+    toStatus: proposalStatus("to_status").notNull(),
+    note: text("note"),
+    userId: uuid("user_id"),
+    userName: text("user_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("proposal_events_idx").on(t.schoolId, t.proposalId, t.id), sameSchool(t, "proposalId", proposals, "cascade")],
+);
+
+/** Pengadaan barang (pembelian) */
+export const procurements = pgTable(
+  "procurements",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    number: varchar("number", { length: 40 }).notNull(),
+    status: procurementStatus("status").notNull().default("DRAF"),
+    proposalId: uuid("proposal_id"),
+    vendorId: uuid("vendor_id"),
+    fundingSourceId: uuid("funding_source_id"),
+    fundingComponentId: uuid("funding_component_id"),
+    orderDate: date("order_date").notNull(),
+    refNumber: text("ref_number"),
+    refDate: date("ref_date"),
+    /** Pajak dicatat (tidak mengubah harga perolehan yang diisi) */
+    taxAmount: money("tax_amount").notNull().default("0"),
+    note: text("note"),
+    attachment: text("attachment"),
+    createdBy: uuid("created_by").notNull(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("procurements_school_id_key").on(t.schoolId, t.id),
+    uniqueIndex("procurements_school_number_key").on(t.schoolId, t.number),
+    sameSchool(t, "proposalId", proposals),
+    sameSchool(t, "vendorId", vendors),
+    sameSchool(t, "fundingSourceId", fundingSources),
+    sameSchool(t, "fundingComponentId", fundingComponents),
+    check("procurements_tax_check", sql`${t.taxAmount} >= 0`),
+  ],
+);
+
+export const procurementLines = pgTable(
+  "procurement_lines",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    procurementId: uuid("procurement_id").notNull(),
+    lineNo: smallint("line_no").notNull(),
+    proposalLineId: uuid("proposal_line_id"),
+    kind: goodsKind("kind").notNull(),
+    /** Persediaan: barang persediaan (wajib saat diterima) */
+    itemId: uuid("item_id"),
+    /** Aset: kode barang & nama */
+    bmdCode: varchar("bmd_code", { length: 32 }),
+    description: text("description").notNull(),
+    brand: text("brand"),
+    qty: qty("qty").notNull(),
+    unitPrice: money("unit_price").notNull(),
+    qtyReceived: qty("qty_received").notNull().default("0"),
+  },
+  (t) => [
+    uniqueIndex("procurement_lines_line_key").on(t.procurementId, t.lineNo),
+    sameSchool(t, "procurementId", procurements, "cascade"),
+    sameSchool(t, "proposalLineId", proposalLines),
+    sameSchool(t, "itemId", supplyItems),
+    check("procurement_lines_check", sql`${t.qty} > 0 and ${t.unitPrice} >= 0 and ${t.qtyReceived} >= 0 and ${t.qtyReceived} <= ${t.qty}`),
+  ],
+);
+
 // ─────────────────────────────────────────────────────────── impor Excel
 
 /** Hasil baca berkas impor (pratinjau) — dikonfirmasi lalu diproses; dihapus otomatis setelah 2 hari */
@@ -1154,4 +1326,10 @@ export const RLS_TABLES = [
   "disposal_lines",
   "maintenances",
   "import_jobs",
+  "budget_ceilings",
+  "proposals",
+  "proposal_lines",
+  "proposal_events",
+  "procurements",
+  "procurement_lines",
 ] as const;

@@ -6,7 +6,7 @@ import { loadPrintContext } from "@/lib/server/print";
 import { rusakBeratData, tidakDigunakanData } from "@/lib/server/reports";
 import { fmtNum, fmtRp } from "@/lib/decimal";
 import { tanggalPanjang } from "@/lib/terbilang";
-import { Halaman, Identitas, Tabel, Ttd } from "@/components/cetak/print";
+import { Halaman, Tabel, Ttd } from "@/components/cetak/print";
 
 export const metadata: Metadata = { title: "Cetak Laporan Pemantauan" };
 
