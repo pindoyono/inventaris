@@ -28,7 +28,7 @@ export default async function MutasiPage({ searchParams }: PageProps<"/laporan/m
 
   return (
     <div>
-      <ReportHeader parts={data.parts} title="Laporan Mutasi Persediaan" subtitle={`${per.label} (${fmtDate(per.from)} s/d ${fmtDate(per.to)}) · ${whName}`} csv={`/laporan/mutasi/csv?${qs}`}>
+      <ReportHeader parts={data.parts} title="Laporan Mutasi Persediaan" subtitle={`${per.label} (${fmtDate(per.from)} s/d ${fmtDate(per.to)}) · ${whName}`} csv={`/laporan/mutasi/csv?${qs}`} print={`/cetak/mutasi?${qs}`}>
         <PeriodForm year={per.year} sem={per.sem}>
           <select name="gudang" defaultValue={data.wh ?? ""} className="rounded-md border border-slate-300 bg-white px-2 py-1.5">
             <option value="">Semua gudang</option>

@@ -1,0 +1,99 @@
+/* Gaya cetak dokumen BMD — dipakai semua format. Satuan mm agar presisi di kertas. */
+:root { --garis: #000; --abu: #555; }
+* { box-sizing: border-box; }
+html { background: #e9ebee; }
+body { margin: 0; font: 10pt/1.35 Arial, "Liberation Sans", Helvetica, sans-serif; color: #000; }
+
+.halaman { background: #fff; margin: 12mm auto; padding: 10mm 12mm 10mm; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+.a4-potret { width: 210mm; min-height: 297mm; }
+.a4-lanskap { width: 297mm; min-height: 210mm; }
+.a4-lanskap.halaman { padding-top: 8mm; padding-bottom: 7mm; }
+
+@media print {
+  html, body { background: #fff; }
+  .halaman { margin: 0; box-shadow: none; min-height: auto; }
+  .halaman + .halaman { break-before: page; }
+  .tanpa-cetak { display: none !important; }
+}
+@page potret { size: A4 portrait; margin: 0; }
+@page lanskap { size: A4 landscape; margin: 0; }
+.a4-potret { page: potret; }
+.a4-lanskap { page: lanskap; }
+
+/* Kop surat */
+.kop { display: grid; grid-template-columns: 22mm 1fr 22mm; align-items: center; border-bottom: 3px double var(--garis); padding-bottom: 2mm; margin-bottom: 4mm; text-align: center; }
+.kop img, .kop .logo { width: 18mm; height: 18mm; }
+.kop .logo { border: 1px dashed var(--abu); border-radius: 50%; display: grid; place-items: center; font-size: 7pt; color: var(--abu); }
+.kop .pemda { font-size: 11pt; font-weight: bold; }
+.kop .dinas { font-size: 11pt; font-weight: bold; }
+.kop .sekolah { font-size: 14pt; font-weight: bold; letter-spacing: .3px; }
+.kop .alamat { font-size: 8.5pt; }
+
+/* Judul dokumen */
+.judul { text-align: center; margin: 0 0 4mm; }
+.judul h1 { font-size: 12pt; margin: 0; text-transform: uppercase; text-decoration: underline; }
+.judul .nomor { font-size: 10pt; margin-top: 1mm; }
+.judul .sub { font-size: 10pt; font-weight: bold; text-transform: uppercase; }
+
+/* Identitas (label : nilai) */
+.identitas { border-collapse: collapse; margin-bottom: 3mm; }
+.identitas td { padding: .6mm 2mm .6mm 0; vertical-align: top; }
+.identitas td:first-child { white-space: nowrap; }
+.identitas td:nth-child(2) { width: 3mm; }
+
+/* Tabel data */
+table.data { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+/* tabel lebar: lebih rapat agar tidak melewati margin */
+.rapat table.data { font-size: 7.6pt; }
+.rapat table.data th, .rapat table.data td { padding: .8mm 1mm; }
+.rapat table.data td.kode { font-size: 6.8pt; }
+.rapat .identitas td { padding-top: .2mm; padding-bottom: .2mm; }
+.rapat .kop { margin-bottom: 2.5mm; }
+.rapat .judul { margin-bottom: 2.5mm; }
+table.data th, table.data td { border: 1px solid var(--garis); padding: 1.2mm 1.5mm; vertical-align: top; }
+table.data th { background: #f0f0f0; text-align: center; font-weight: bold; vertical-align: middle; }
+table.data tr.nomor-kolom th { background: #fff; font-weight: normal; font-size: 8pt; padding: .5mm; }
+table.data td.tengah { text-align: center; white-space: nowrap; }
+table.data td.angka { text-align: right; white-space: nowrap; }
+table.data td.kode { font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: 7.5pt; white-space: nowrap; width: 1%; }
+table.data tr.jumlah td { font-weight: bold; }
+table.data td.nama { min-width: 42mm; }
+table.data td.unit { min-width: 30mm; }
+table.data tr.kosong td { height: 6mm; }
+
+.paragraf { text-align: justify; margin: 0 0 3mm; }
+.catatan { font-size: 8.5pt; color: var(--abu); margin-top: 2mm; }
+
+/* Tanda tangan */
+.ttd { display: grid; gap: 8mm; margin-top: 5mm; text-align: center; page-break-inside: avoid; }
+/* nama & NIP sejajar walau jumlah baris jabatan berbeda */
+.ttd > div { display: flex; flex-direction: column; justify-content: flex-end; }
+.ttd.satu { grid-template-columns: 70mm; justify-content: center; }
+.ttd.dua { grid-template-columns: 1fr 1fr; }
+.ttd.tiga { grid-template-columns: 1fr 1fr 1fr; }
+.ttd .ruang { height: 15mm; }
+.ttd .nama { font-weight: bold; text-decoration: underline; }
+.ttd .tempat { visibility: hidden; }
+.ttd .tempat.tampil { visibility: visible; }
+
+/* Bilah petunjuk di layar (tidak ikut tercetak) */
+.bilah { position: sticky; top: 0; z-index: 5; background: #1f2937; color: #fff; padding: 8px 16px; font: 13px system-ui, sans-serif; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.bilah a { color: #a7f3d0; }
+.bilah button { background: #10b981; color: #fff; border: 0; border-radius: 6px; padding: 6px 14px; font-weight: 600; cursor: pointer; }
+.bilah .ket { opacity: .85; }
+
+/* Penyesuaian di aplikasi: netralkan preflight Tailwind & latar aplikasi */
+body { background: transparent !important; display: block !important; }
+.judul h1 { font-weight: bold; }
+.kop img { object-fit: contain; }
+table.data { table-layout: auto; }
+.sementara { color: #b91c1c; font-weight: bold; }
+.label-grid { display: grid; grid-template-columns: repeat(2, 90mm); gap: 4mm 6mm; justify-content: center; }
+.label { border: 1px solid #000; border-radius: 2mm; height: 32mm; display: grid; grid-template-columns: 26mm 1fr; gap: 2mm; padding: 2mm; break-inside: avoid; overflow: hidden; }
+.label .qr svg { width: 26mm; height: 26mm; }
+.label .pemilik { font-size: 6.5pt; font-weight: bold; }
+.label .sek { font-size: 8pt; font-weight: bold; margin-bottom: .8mm; }
+.label .reg { font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: 7.4pt; text-align: center; }
+.label .reg.atas { border-bottom: 1px solid #000; padding-bottom: .4mm; margin-bottom: .4mm; }
+.label .nm { font-size: 7.5pt; margin-top: .8mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.label .sm { font-size: 6pt; color: #b91c1c; font-weight: bold; }

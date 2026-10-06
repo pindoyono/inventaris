@@ -124,7 +124,14 @@ export default async function PermintaanDetailPage({ params }: PageProps<"/permi
           )}
         </div>
       </div>
-      <p className="text-xs text-slate-500">Versi cetak nota permintaan (format 04), SPPB (05), dan BAST (06) dipasang setelah contoh format disetujui.</p>
+      {r.number && (
+        <div className="flex flex-wrap gap-2">
+          <a href={`/cetak/permintaan/${r.id}?dok=np`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak nota permintaan</a>
+          {r.spNumber && <a href={`/cetak/permintaan/${r.id}?dok=sp`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak surat permintaan</a>}
+          {r.sppbNumber && <a href={`/cetak/permintaan/${r.id}?dok=sppb`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak SPPB</a>}
+          {data.doc && <a href={`/cetak/dokumen/${data.doc.id}`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak BAST</a>}
+        </div>
+      )}
     </div>
   );
 }

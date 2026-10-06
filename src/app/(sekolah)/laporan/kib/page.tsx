@@ -22,7 +22,7 @@ export default async function KibPage({ searchParams }: PageProps<"/laporan/kib"
 
   return (
     <div>
-      <ReportHeader parts={parts} title={`Kartu Inventaris Barang (${KIB_LABEL[gol].replace(" — ", ") ")}`} subtitle={ekstra ? "Termasuk barang ekstrakomptabel" : "Intrakomptabel"} csv={`/laporan/kib/csv?${qs}`}>
+      <ReportHeader parts={parts} title={`Kartu Inventaris Barang (${KIB_LABEL[gol].replace(" — ", ") ")}`} subtitle={ekstra ? "Termasuk barang ekstrakomptabel" : "Intrakomptabel"} csv={`/laporan/kib/csv?${qs}`} print={`/cetak/kib?${qs}`}>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {Object.keys(KIB_LABEL).map((g) => (
             <Link key={g} href={`?gol=${g}${ekstra ? "&ekstra=1" : ""}`} className={`rounded-full px-3 py-1 ${g === gol ? "bg-slate-800 text-white" : "border border-slate-300 bg-white"}`}>{g}</Link>

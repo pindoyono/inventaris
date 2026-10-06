@@ -58,6 +58,7 @@ export function AssetTable({ rows, rooms, canEdit, today }: { rows: Row[]; rooms
               <Button type="button" disabled={pending || !target} onClick={apply}>{pending ? "Memproses…" : "Terapkan"}</Button>
             </>
           )}
+          <a href={`/cetak/label?${[...sel].map((id) => `id=${id}`).join("&")}`} target="_blank" rel="noreferrer" className="rounded-md border border-slate-300 bg-white px-2 py-1.5 hover:bg-slate-50">Cetak label</a>
           <button type="button" onClick={() => setSel(new Set())} className="text-slate-600 hover:underline">Batal pilih</button>
         </div>
       )}

@@ -167,7 +167,7 @@ export default async function BarangPage({ params, searchParams }: PageProps<"/p
         <div className="flex flex-wrap gap-4 border-t border-slate-200 p-4 text-sm">
           <Link href={qs({ tahun: String(year - 1) })} className="text-teal-700 hover:underline">← {year - 1}</Link>
           <Link href={qs({ tahun: String(year + 1) })} className="text-teal-700 hover:underline">{year + 1} →</Link>
-          <span className="text-slate-500">Versi cetak menyusul setelah format 03 disetujui.</span>
+          <a href={`/cetak/kartu-barang/${item.id}${qs({})}`} target="_blank" rel="noreferrer" className="ml-auto font-medium text-teal-700 hover:underline">Cetak kartu barang persediaan</a>
         </div>
       </section>
 

@@ -8,9 +8,9 @@ export function kodeLokasi(p: RegisterParts) {
   return { text: [top[0], top[1], top[2], top[3], top[4], top[5], top[6]].join("."), provisional: !p.kodePengguna || !p.kodeKuasaPengguna };
 }
 
-export function ReportHeader({ parts, title, subtitle, children, csv }: {
+export function ReportHeader({ parts, title, subtitle, children, csv, print }: {
   parts: RegisterParts & { schoolName: string; pemdaName: string | null };
-  title: string; subtitle?: string; children?: ReactNode; csv?: string;
+  title: string; subtitle?: string; children?: ReactNode; csv?: string; print?: string;
 }) {
   const kl = kodeLokasi(parts);
   return (
@@ -27,7 +27,7 @@ export function ReportHeader({ parts, title, subtitle, children, csv }: {
         </div>
         <div className="flex gap-2 print:hidden">
           {csv && <a href={csv} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Unduh Excel (CSV)</a>}
-          <PrintButton />
+          {print ? <a href={print} target="_blank" rel="noreferrer" className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800">Cetak</a> : <PrintButton />}
         </div>
       </div>
       {children && <div className="print:hidden">{children}</div>}

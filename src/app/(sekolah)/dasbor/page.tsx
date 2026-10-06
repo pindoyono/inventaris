@@ -51,8 +51,7 @@ export default async function DasborPage({ searchParams }: PageProps<"/dasbor">)
       </div>
       <Card title="Tahap pengembangan">
         <p className="text-sm text-slate-600">
-          Sudah tersedia: penyiapan & data dasar, persediaan (FIFO, kartu barang), permintaan barang dari unit, dan aset
-          tetap per unit. Peminjaman, stock opname, penghapusan, pemeliharaan, laporan KIR/KIB, dan versi cetak menyusul.
+          Tersedia: penyiapan & data dasar, persediaan FIFO, permintaan unit, aset per unit & label, peminjaman, audit (opname, inventarisasi, penghapusan, pemeliharaan), laporan, dan cetak dokumen sesuai format BMD.
         </p>
       </Card>
     </div>

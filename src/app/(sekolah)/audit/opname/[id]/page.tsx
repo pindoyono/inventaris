@@ -47,7 +47,7 @@ export default async function OpnameDetailPage({ params }: PageProps<"/audit/opn
         items={data.items.filter((i) => !data.lines.some((l) => l.l.itemId === i.id))}
         lines={data.lines.map(({ l, name, nusp, uom }) => ({ id: l.id, name, nusp, uom, systemQty: l.systemQty, physicalQty: l.physicalQty, damagedQty: l.damagedQty, surplusPrice: l.surplusPrice, note: l.note }))}
       />
-      <p className="text-xs text-slate-500">Versi cetak Berita Acara Inventarisasi Fisik Persediaan (format 11) dipasang setelah contoh format disetujui.</p>
+      <a href={`/cetak/opname/${o.id}`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak berita acara{o.status === "DRAF" ? " (lembar kerja)" : ""}</a>
     </div>
   );
 }

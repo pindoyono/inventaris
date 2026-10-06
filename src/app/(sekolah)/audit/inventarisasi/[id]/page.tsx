@@ -38,7 +38,7 @@ export default async function InventarisasiDetailPage({ params }: PageProps<"/au
           assetStatus: status, recorded: l.conditionRecorded, found: l.found, condition: l.conditionFound, note: l.note,
         }))}
       />
-      <p className="text-xs text-slate-500">Versi cetak lembar kerja & laporan hasil inventarisasi dipasang setelah contoh format disetujui.</p>
+      <a href={`/cetak/inventarisasi/${v.id}`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">{v.status === "DRAF" ? "Cetak lembar kerja" : "Cetak laporan hasil inventarisasi"}</a>
     </div>
   );
 }

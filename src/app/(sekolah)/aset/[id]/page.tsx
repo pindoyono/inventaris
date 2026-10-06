@@ -89,7 +89,10 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
           <section>
             <div className="mb-2 flex items-center justify-between">
               <h2 className="font-semibold">Kartu pemeliharaan</h2>
-              {canEdit && a.status === "DIGUNAKAN" && <Link href={`/audit/pemeliharaan/baru?aset=${a.id}`} className="text-sm text-teal-700 hover:underline">+ Catat pemeliharaan</Link>}
+              <span className="flex gap-3 text-sm">
+                {data.maint.length > 0 && <a href={`/cetak/pemeliharaan/${a.id}`} target="_blank" rel="noreferrer" className="text-teal-700 hover:underline">Cetak kartu</a>}
+                {canEdit && a.status === "DIGUNAKAN" && <Link href={`/audit/pemeliharaan/baru?aset=${a.id}`} className="text-teal-700 hover:underline">+ Catat pemeliharaan</Link>}
+              </span>
             </div>
             <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white text-sm">
               {data.maint.length === 0 && <li className="px-4 py-2 text-slate-500">Belum ada.</li>}
@@ -126,7 +129,8 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold">Pratinjau label</h2>
             <RegisterLabel pemda={parts.pemdaName} school={parts.schoolName} top={reg.top} bottom={reg.bottom} name={a.name} provisional={reg.provisional} qr={qr} />
-            <p className="mt-2 text-xs text-slate-500">QR membuka halaman barang ini. Versi cetak label menyusul setelah contoh format 10 disetujui.</p>
+            <p className="mt-2 text-xs text-slate-500">QR membuka halaman barang ini.</p>
+            {canEdit && <a href={`/cetak/label?id=${a.id}`} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-medium text-teal-700 hover:underline">Cetak label</a>}
           </section>
           {canEdit && a.status !== "DIHAPUS" && <QuickActions id={a.id} roomId={a.roomId} condition={a.condition} rooms={data.roomOpts} today={todayWita()} />}
         </div>

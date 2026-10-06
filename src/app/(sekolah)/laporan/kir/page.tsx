@@ -28,7 +28,7 @@ export default async function KirPage({ searchParams }: PageProps<"/laporan/kir"
 
   return (
     <div>
-      <ReportHeader parts={data.parts} title="Kartu Inventaris Ruangan (KIR)" subtitle={`${per.label} · posisi per ${fmtDate(per.asOf)}`} csv={k ? `/laporan/kir/csv?${qs}` : undefined}>
+      <ReportHeader parts={data.parts} title="Kartu Inventaris Ruangan (KIR)" subtitle={`${per.label} · posisi per ${fmtDate(per.asOf)}`} csv={k ? `/laporan/kir/csv?${qs}` : undefined} print={k ? `/cetak/kir?${qs}` : undefined}>
         <PeriodForm year={per.year} sem={per.sem}>
           <select name="ruang" defaultValue={data.roomId} className="rounded-md border border-slate-300 bg-white px-2 py-1.5">
             {data.roomList.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}

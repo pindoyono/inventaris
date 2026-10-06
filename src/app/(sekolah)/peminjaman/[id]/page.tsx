@@ -81,7 +81,7 @@ export default async function PeminjamanDetailPage({ params }: PageProps<"/pemin
         own={own}
         lines={lines.map(({ x, name, regNo, condition }) => ({ id: x.id, assetId: x.assetId, label: `${name} · ${String(regNo).padStart(6, "0")}`, out: !!x.outAt && !x.returnedAt, condition }))}
       />
-      <p className="text-xs text-slate-500">Versi cetak Kartu Peminjaman (format 07) dipasang setelah contoh format disetujui.</p>
+      {l.loanedAt && <a href={`/cetak/peminjaman/${l.id}`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak kartu peminjaman</a>}
     </div>
   );
 }

@@ -129,7 +129,11 @@ export default async function DokumenDetailPage({ params }: PageProps<"/persedia
           <CancelAction docId={d.id} />
         </div>
       )}
-      <p className="text-xs text-slate-500">Versi cetak (BAST/kartu penerimaan/pengeluaran) dipasang setelah contoh format disetujui.</p>
+      {d.status !== "DRAF" && (
+        <a href={`/cetak/dokumen/${d.id}`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">
+          Cetak {d.kind === "PENYALURAN" ? "BAST" : d.kind === "PENERIMAAN" || d.kind === "SALDO_AWAL" ? "kartu penerimaan" : "berita acara"}
+        </a>
+      )}
     </div>
   );
 }

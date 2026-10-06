@@ -88,7 +88,7 @@ export default async function UsulanDetailPage({ params, searchParams }: PagePro
         today={todayWita()}
         lines={lines.map(({ l, a }) => ({ id: l.id, label: `${a.name} · ${String(a.regNo).padStart(6, "0")}` }))}
       />
-      <p className="text-xs text-slate-500">Versi cetak surat usulan & daftar barang usulan penghapusan (format 12) dipasang setelah contoh format disetujui.</p>
+      {d.number && <a href={`/cetak/penghapusan/${d.id}`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak surat usulan & daftar barang</a>}
     </div>
   );
 }

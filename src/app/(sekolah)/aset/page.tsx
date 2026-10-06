@@ -71,7 +71,7 @@ export default async function AsetPage({ searchParams }: PageProps<"/aset">) {
       <PageTitle title="Aset tetap" desc="Barang inventaris per unit dengan kode register BMD. Barang di bawah batas kapitalisasi tetap dicatat sebagai ekstrakomptabel." />
       {batch && (
         <p className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900">
-          {data.sum.n} unit baru dicatat. <Link href="/aset" className="underline">Tampilkan semua aset</Link>
+          {data.sum.n} unit baru dicatat. <a href={`/cetak/label?batch=${batch}`} target="_blank" rel="noreferrer" className="font-medium underline">Cetak label</a> · <Link href="/aset" className="underline">Tampilkan semua aset</Link>
         </p>
       )}
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
