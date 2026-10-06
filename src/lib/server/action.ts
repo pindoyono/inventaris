@@ -4,6 +4,7 @@ import { AccessError, requireSchoolUser, withSchool, type SchoolSession } from "
 import type { Role } from "@/lib/roles";
 import type { FieldErrors } from "@/lib/validations";
 import { pgCode } from "@/lib/server/activity";
+import { UserError } from "@/lib/server/errors";
 
 export type FormState = { errors?: FieldErrors; ok?: string; values?: Record<string, string> };
 
@@ -33,6 +34,7 @@ export async function runSchoolAction(
     return await withSchool(s.schoolId, (tx) => fn(tx, s));
   } catch (e) {
     if (e instanceof FormFail) return { errors: e.errors };
+    if (e instanceof UserError) return { errors: { _form: e.message } };
     const code = pgCode(e);
     if (code === "23505") return { errors: { _form: messages.unique ?? "Data dengan nama/kode yang sama sudah ada." } };
     if (code === "23503") return { errors: { _form: messages.inUse ?? "Data masih dipakai oleh data lain sehingga tidak bisa dihapus." } };

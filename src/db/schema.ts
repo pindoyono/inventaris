@@ -4,9 +4,12 @@ import {
   boolean,
   char,
   foreignKey,
+  check,
+  date,
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   primaryKey,
@@ -48,6 +51,29 @@ export const schoolLevel = pgEnum("school_level", ["SD", "SMP", "SMA", "SMK", "S
 export const schoolStatus = pgEnum("school_status", ["PENDING", "ACTIVE", "REJECTED", "SUSPENDED"]);
 export const userRole = pgEnum("user_role", ["ADMIN", "KEPSEK", "VERIFIKATOR", "PETUGAS", "PENGUSUL", "PEMINJAM"]);
 export const distributionMode = pgEnum("distribution_mode", ["LENGKAP", "RINGKAS"]);
+/** Jenis dokumen stok persediaan */
+export const stockDocKind = pgEnum("stock_doc_kind", [
+  "SALDO_AWAL",
+  "PENERIMAAN",
+  "PENYALURAN",
+  "MUTASI",
+  "PENYESUAIAN_TAMBAH",
+  "PENYESUAIAN_KURANG",
+  "RUSAK_USANG",
+]);
+export const stockDocStatus = pgEnum("stock_doc_status", ["DRAF", "DIPOSTING", "DIBATALKAN"]);
+/** Jenis baris buku besar persediaan (PEMBALIK = pembatalan dokumen yang sudah diposting) */
+export const movementKind = pgEnum("movement_kind", [
+  "SALDO_AWAL",
+  "PENERIMAAN",
+  "PENYALURAN",
+  "MUTASI_KELUAR",
+  "MUTASI_MASUK",
+  "PENYESUAIAN_TAMBAH",
+  "PENYESUAIAN_KURANG",
+  "RUSAK_USANG",
+  "PEMBALIK",
+]);
 
 // ─────────────────────────────────────────────────────────── tabel platform (tanpa RLS)
 
@@ -150,6 +176,8 @@ export const schoolSettings = pgTable("school_settings", {
   distributionMode: distributionMode("distribution_mode").notNull().default("RINGKAS"),
   loanDefaultDays: smallint("loan_default_days").notNull().default(1),
   unitLabel: text("unit_label").notNull().default("Unit"),
+  /** Tutup buku: transaksi bertanggal ≤ tanggal ini ditolak */
+  booksClosedUntil: date("books_closed_until"),
   ...timestamps(),
 });
 
@@ -285,7 +313,7 @@ export const uoms = pgTable(
     name: varchar("name", { length: 30 }).notNull(),
     ...timestamps(),
   },
-  (t) => [uniqueIndex("uoms_school_name_key").on(t.schoolId, t.name)],
+  (t) => [uniqueIndex("uoms_school_name_key").on(t.schoolId, t.name), uniqueIndex("uoms_school_id_key").on(t.schoolId, t.id)],
 );
 
 export const fundingSources = pgTable(
@@ -313,6 +341,7 @@ export const fundingComponents = pgTable(
   },
   (t) => [
     uniqueIndex("funding_components_source_name_key").on(t.fundingSourceId, t.name),
+    uniqueIndex("funding_components_school_id_key").on(t.schoolId, t.id),
     sameSchool(t, "fundingSourceId", fundingSources, "cascade"),
   ],
 );
@@ -328,7 +357,7 @@ export const vendors = pgTable(
     npwp: varchar("npwp", { length: 25 }),
     ...timestamps(),
   },
-  (t) => [uniqueIndex("vendors_school_name_key").on(t.schoolId, t.name)],
+  (t) => [uniqueIndex("vendors_school_name_key").on(t.schoolId, t.name), uniqueIndex("vendors_school_id_key").on(t.schoolId, t.id)],
 );
 
 /** Kode barang tambahan Pemda/sekolah di bawah sub rincian objek (Permendagri 108/2016 Pasal 3 ayat 2) */
@@ -377,6 +406,201 @@ export const activityLogs = pgTable(
   (t) => [index("activity_logs_school_created_idx").on(t.schoolId, t.createdAt)],
 );
 
+// ─────────────────────────────────────────────────────────── persediaan (Permendagri 47/2021)
+
+const qty = (name: string) => numeric(name, { precision: 14, scale: 2 });
+const money = (name: string) => numeric(name, { precision: 16, scale: 2 });
+
+/** Barang persediaan per spesifikasi: NUSP = kode barang persediaan (tingkat 7) + nomor urut spesifikasi 4 digit */
+export const supplyItems = pgTable(
+  "supply_items",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    bmdCode: varchar("bmd_code", { length: 32 }).notNull(),
+    seq: integer("seq").notNull(),
+    nusp: varchar("nusp", { length: 40 }).notNull(),
+    name: text("name").notNull(),
+    spec: text("spec"),
+    uomId: uuid("uom_id").notNull(),
+    minStock: qty("min_stock").notNull().default("0"),
+    isActive: boolean("is_active").notNull().default(true),
+    /** Token QR rak/gudang (bukan label register) */
+    qrToken: varchar("qr_token", { length: 32 }).notNull().default(sql`encode(gen_random_bytes(12), 'hex')`),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("supply_items_school_nusp_key").on(t.schoolId, t.nusp),
+    uniqueIndex("supply_items_school_code_seq_key").on(t.schoolId, t.bmdCode, t.seq),
+    uniqueIndex("supply_items_school_id_key").on(t.schoolId, t.id),
+    uniqueIndex("supply_items_qr_key").on(t.qrToken),
+    sameSchool(t, "uomId", uoms),
+    check("supply_items_seq_check", sql`${t.seq} between 1 and 9999`),
+    check("supply_items_min_stock_check", sql`${t.minStock} >= 0`),
+  ],
+);
+
+/** Penomoran dokumen per sekolah × jenis × tahun */
+export const docCounters = pgTable(
+  "doc_counters",
+  {
+    schoolId: schoolId(),
+    kind: varchar("kind", { length: 30 }).notNull(),
+    year: smallint("year").notNull(),
+    last: integer("last").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.schoolId, t.kind, t.year] })],
+);
+
+/** Dokumen stok (kepala). Diposting sekali; koreksi lewat pembatalan (baris PEMBALIK), bukan edit. */
+export const stockDocs = pgTable(
+  "stock_docs",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    kind: stockDocKind("kind").notNull(),
+    status: stockDocStatus("status").notNull().default("DRAF"),
+    number: varchar("number", { length: 40 }),
+    date: date("date").notNull(),
+    warehouseId: uuid("warehouse_id").notNull(),
+    /** Tujuan mutasi antar gudang */
+    toWarehouseId: uuid("to_warehouse_id"),
+    /** Unit penerima penyaluran */
+    unitId: uuid("unit_id"),
+    vendorId: uuid("vendor_id"),
+    fundingSourceId: uuid("funding_source_id"),
+    fundingComponentId: uuid("funding_component_id"),
+    /** Cara perolehan (Pasal 7 Permendagri 47/2021): PEMBELIAN, HIBAH, ... */
+    acquisition: varchar("acquisition", { length: 30 }),
+    refNumber: text("ref_number"),
+    refDate: date("ref_date"),
+    note: text("note"),
+    createdBy: uuid("created_by"),
+    postedBy: uuid("posted_by"),
+    postedAt: timestamp("posted_at", { withTimezone: true }),
+    cancelledBy: uuid("cancelled_by"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("stock_docs_school_id_key").on(t.schoolId, t.id),
+    uniqueIndex("stock_docs_school_number_key").on(t.schoolId, t.number),
+    index("stock_docs_school_date_idx").on(t.schoolId, t.date),
+    sameSchool(t, "warehouseId", warehouses),
+    sameSchool(t, "toWarehouseId", warehouses),
+    sameSchool(t, "unitId", units),
+    sameSchool(t, "vendorId", vendors),
+    sameSchool(t, "fundingSourceId", fundingSources),
+    sameSchool(t, "fundingComponentId", fundingComponents),
+  ],
+);
+
+export const stockDocLines = pgTable(
+  "stock_doc_lines",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    docId: uuid("doc_id").notNull(),
+    lineNo: smallint("line_no").notNull(),
+    itemId: uuid("item_id").notNull(),
+    qty: qty("qty").notNull(),
+    /** Harga satuan untuk baris masuk; untuk baris keluar diisi sistem (FIFO) */
+    unitPrice: money("unit_price"),
+    note: text("note"),
+  },
+  (t) => [
+    uniqueIndex("stock_doc_lines_doc_line_key").on(t.docId, t.lineNo),
+    sameSchool(t, "docId", stockDocs, "cascade"),
+    sameSchool(t, "itemId", supplyItems),
+    check("stock_doc_lines_qty_check", sql`${t.qty} > 0`),
+    check("stock_doc_lines_price_check", sql`${t.unitPrice} is null or ${t.unitPrice} >= 0`),
+  ],
+);
+
+/** Batch FIFO: satu baris per barang masuk per gudang */
+export const stockLots = pgTable(
+  "stock_lots",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    itemId: uuid("item_id").notNull(),
+    warehouseId: uuid("warehouse_id").notNull(),
+    receivedDate: date("received_date").notNull(),
+    qtyIn: qty("qty_in").notNull(),
+    qtyLeft: qty("qty_left").notNull(),
+    unitPrice: money("unit_price").notNull(),
+    docId: uuid("doc_id").notNull(),
+    /** Lot asal bila hasil mutasi antar gudang */
+    originLotId: uuid("origin_lot_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("stock_lots_school_id_key").on(t.schoolId, t.id),
+    index("stock_lots_fifo_idx").on(t.schoolId, t.itemId, t.warehouseId, t.receivedDate, t.createdAt),
+    sameSchool(t, "itemId", supplyItems),
+    sameSchool(t, "warehouseId", warehouses),
+    sameSchool(t, "docId", stockDocs),
+    check("stock_lots_qty_check", sql`${t.qtyIn} > 0 and ${t.qtyLeft} >= 0 and ${t.qtyLeft} <= ${t.qtyIn}`),
+    check("stock_lots_price_check", sql`${t.unitPrice} >= 0`),
+  ],
+);
+
+/** Saldo terkini per barang × gudang; dikunci (FOR UPDATE) saat posting */
+export const stockBalances = pgTable(
+  "stock_balances",
+  {
+    schoolId: schoolId(),
+    itemId: uuid("item_id").notNull(),
+    warehouseId: uuid("warehouse_id").notNull(),
+    qty: qty("qty").notNull().default("0"),
+    value: money("value").notNull().default("0"),
+    lastDate: date("last_date"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.itemId, t.warehouseId] }),
+    sameSchool(t, "itemId", supplyItems),
+    sameSchool(t, "warehouseId", warehouses),
+    check("stock_balances_check", sql`${t.qty} >= 0 and ${t.value} >= 0`),
+  ],
+);
+
+/** Buku besar persediaan — hanya INSERT (UPDATE/DELETE dicabut dan ditolak trigger) */
+export const stockMovements = pgTable(
+  "stock_movements",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    schoolId: schoolId(),
+    itemId: uuid("item_id").notNull(),
+    warehouseId: uuid("warehouse_id").notNull(),
+    date: date("date").notNull(),
+    kind: movementKind("kind").notNull(),
+    docId: uuid("doc_id").notNull(),
+    docNumber: varchar("doc_number", { length: 40 }).notNull(),
+    lotId: uuid("lot_id").notNull(),
+    qtyIn: qty("qty_in").notNull().default("0"),
+    qtyOut: qty("qty_out").notNull().default("0"),
+    unitPrice: money("unit_price").notNull(),
+    value: money("value").notNull(),
+    balanceQty: qty("balance_qty").notNull(),
+    balanceValue: money("balance_value").notNull(),
+    description: text("description"),
+    createdBy: uuid("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("stock_movements_card_idx").on(t.schoolId, t.itemId, t.warehouseId, t.id),
+    index("stock_movements_doc_idx").on(t.schoolId, t.docId),
+    sameSchool(t, "itemId", supplyItems),
+    sameSchool(t, "warehouseId", warehouses),
+    sameSchool(t, "docId", stockDocs),
+    sameSchool(t, "lotId", stockLots),
+    check("stock_movements_qty_check", sql`${t.qtyIn} >= 0 and ${t.qtyOut} >= 0 and (${t.qtyIn} > 0) <> (${t.qtyOut} > 0)`),
+    check("stock_movements_balance_check", sql`${t.balanceQty} >= 0 and ${t.balanceValue} >= 0`),
+  ],
+);
+
 /** Tabel ber-school_id yang wajib dilindungi RLS (dipakai migrasi & tes isolasi) */
 export const RLS_TABLES = [
   "school_settings",
@@ -395,4 +619,11 @@ export const RLS_TABLES = [
   "local_bmd_codes",
   "favorite_bmd_codes",
   "activity_logs",
+  "supply_items",
+  "doc_counters",
+  "stock_docs",
+  "stock_doc_lines",
+  "stock_lots",
+  "stock_balances",
+  "stock_movements",
 ] as const;

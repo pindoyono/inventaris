@@ -22,6 +22,20 @@
       "when": 1791285440622,
       "tag": "0002_fk_satu_sekolah",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791288745568,
+      "tag": "0003_persediaan",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791288762089,
+      "tag": "0004_rls_persediaan",
+      "breakpoints": true
     }
   ]
 }
