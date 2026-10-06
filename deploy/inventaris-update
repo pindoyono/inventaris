@@ -1,0 +1,45 @@
+#!/bin/bash
+# Update Inventaris di tempat: /var/www/inventaris adalah repo kerja sekaligus aplikasi.
+# Jalankan sebagai user ubuntu:  inventaris-update          (build kode yang ada sekarang)
+#                                inventaris-update --pull   (git pull dulu dari GitHub)
+set -euo pipefail
+APP=/var/www/inventaris
+URL=https://inventaris.ankdev.id/login
+cd "$APP"
+
+if [ "$(id -un)" != "ubuntu" ]; then
+    echo "Jalankan sebagai user ubuntu (bukan root)." >&2
+    exit 1
+fi
+
+if [ "${1:-}" = "--pull" ]; then
+    git pull --ff-only
+fi
+
+if [ -n "$(git status --porcelain)" ]; then
+    echo "Peringatan: ada perubahan yang belum di-commit; perubahan itu ikut live:"
+    git status --short
+fi
+
+# Registry npm resmi (mirror di ~/.npmrc tidak melayani format permintaan Bun)
+bun install --frozen-lockfile --registry https://registry.npmjs.org/
+
+# Migrasi & data referensi memakai role pemilik (kredensial hanya dibaca root)
+sudo sh -c 'set -a; . /etc/inventaris/owner.env; set +a; cd /var/www/inventaris && /usr/local/bin/bun x drizzle-kit migrate && /usr/local/bin/bun scripts/seed-referensi.ts'
+
+# .next/cache menunjuk ke folder milik inventaris; dilepas selama build agar ubuntu bisa menulis
+rm -f .next/cache
+NEXT_TELEMETRY_DISABLED=1 bun run build
+rm -rf .next/cache
+ln -s /var/lib/inventaris/cache/next .next/cache
+
+sudo find /var/lib/inventaris/cache/next -mindepth 1 -delete
+sudo systemctl restart inventaris.service
+
+for i in $(seq 1 30); do
+    curl -s -o /dev/null http://127.0.0.1:3030/login && break
+    sleep 1
+done
+code=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+echo "Versi live: $(git log --oneline -1)  |  $URL -> HTTP $code"
+[ "$code" = "200" ] || { echo "Situs tidak merespons 200, cek: sudo journalctl -u inventaris -n 50" >&2; exit 1; }

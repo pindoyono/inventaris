@@ -1,0 +1,14 @@
+[Unit]
+Description=Backup harian database & berkas Inventaris
+After=postgresql.service
+
+[Service]
+Type=oneshot
+UMask=0077
+# pg_dump sebagai postgres: tabel sekolah memakai FORCE RLS sehingga role aplikasi/pemilik tidak bisa membuang datanya
+ExecStart=/bin/sh -c 'd=$(date +%%F) && runuser -u postgres -- pg_dump -d inventaris -Fc > /var/backups/inventaris/inventaris-$d.pgdump && tar -czf /var/backups/inventaris/berkas-$d.tar.gz -C /var/lib/inventaris files && find /var/backups/inventaris -name "inventaris-*" -mtime +14 -delete && find /var/backups/inventaris -name "berkas-*" -mtime +14 -delete'
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/inventaris
+ProtectHome=true
+PrivateTmp=true

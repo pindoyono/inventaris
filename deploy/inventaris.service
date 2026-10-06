@@ -1,0 +1,44 @@
+[Unit]
+Description=Inventaris - Pengelolaan BMD sekolah negeri
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=inventaris
+Group=inventaris
+WorkingDirectory=/var/www/inventaris
+# DATABASE_URL (role inventaris_app), AUTH_SECRET, AUTH_URL, FILES_DIR
+EnvironmentFile=/etc/inventaris/inventaris.env
+Environment=NODE_ENV=production
+Environment=NEXT_TELEMETRY_DISABLED=1
+Environment=HOME=/var/lib/inventaris
+ExecStart=/usr/local/bin/bun run start -H 127.0.0.1 -p 3030
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+MemoryMax=1G
+
+# Hardening: kode hanya-baca; aplikasi hanya menulis ke /var/lib/inventaris (berkas & cache)
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/inventaris
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+CapabilityBoundingSet=
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
