@@ -51,6 +51,7 @@ export type DocInput = {
   refNumber?: string | null;
   refDate?: string | null;
   note?: string | null;
+  requestId?: string | null;
   lines: DocLineInput[];
 };
 

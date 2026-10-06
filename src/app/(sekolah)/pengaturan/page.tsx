@@ -40,6 +40,9 @@ export default async function PengaturanPage() {
           </li>
         ))}
       </ol>
+      <p className="mt-6 text-sm">
+        <Link href="/pengaturan/tutup-buku" className="text-teal-700 hover:underline">Tutup periode (tutup buku) →</Link>
+      </p>
       <div className="mt-6">
         {completedAt ? (
           <p className="text-sm text-emerald-700">Penyiapan sudah ditandai selesai.</p>

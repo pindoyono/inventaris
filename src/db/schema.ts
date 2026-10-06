@@ -54,6 +54,16 @@ export const distributionMode = pgEnum("distribution_mode", ["LENGKAP", "RINGKAS
 export const assetCondition = pgEnum("asset_condition", ["BAIK", "RUSAK_RINGAN", "RUSAK_BERAT"]);
 export const assetStatus = pgEnum("asset_status", ["DIGUNAKAN", "DIPINJAM", "DALAM_PEMELIHARAAN", "DIUSULKAN_HAPUS", "DIHAPUS", "HILANG"]);
 export const assetEventKind = pgEnum("asset_event_kind", ["DICATAT", "PINDAH", "KONDISI", "STATUS", "UBAH_DATA"]);
+export const requestStatus = pgEnum("request_status", [
+  "DRAF",
+  "DIAJUKAN",
+  "DITERUSKAN",
+  "DIVERIFIKASI",
+  "DISETUJUI",
+  "SELESAI",
+  "DITOLAK",
+  "DIBATALKAN",
+]);
 /** Jenis dokumen stok persediaan */
 export const stockDocKind = pgEnum("stock_doc_kind", [
   "SALDO_AWAL",
@@ -492,6 +502,8 @@ export const stockDocs = pgTable(
     refNumber: text("ref_number"),
     refDate: date("ref_date"),
     note: text("note"),
+    /** Nota permintaan asal (penyaluran hasil permintaan unit) */
+    requestId: uuid("request_id"),
     createdBy: uuid("created_by"),
     postedBy: uuid("posted_by"),
     postedAt: timestamp("posted_at", { withTimezone: true }),
@@ -510,6 +522,7 @@ export const stockDocs = pgTable(
     sameSchool(t, "vendorId", vendors),
     sameSchool(t, "fundingSourceId", fundingSources),
     sameSchool(t, "fundingComponentId", fundingComponents),
+    sameSchool(t, "requestId", supplyRequests),
   ],
 );
 
@@ -702,6 +715,91 @@ export const assetEvents = pgTable(
   ],
 );
 
+// ─────────────────────────────────────────────────────────── permintaan persediaan (Permendagri 47/2021 Ps. 36–37)
+
+/**
+ * Nota permintaan dari unit. Mode & tingkat persetujuan disalin saat diajukan.
+ * Ringkas: DIAJUKAN → (Petugas salurkan) SELESAI.
+ * Lengkap: DIAJUKAN → DITERUSKAN (surat permintaan) → [DIVERIFIKASI] → DISETUJUI (SPPB) → SELESAI (BAST).
+ */
+export const supplyRequests = pgTable(
+  "supply_requests",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    number: varchar("number", { length: 40 }),
+    status: requestStatus("status").notNull().default("DRAF"),
+    unitId: uuid("unit_id").notNull(),
+    date: date("date").notNull(),
+    purpose: text("purpose"),
+    mode: distributionMode("mode"),
+    levels: smallint("levels"),
+    requestedBy: uuid("requested_by").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    spNumber: varchar("sp_number", { length: 40 }),
+    forwardedBy: uuid("forwarded_by"),
+    forwardedAt: timestamp("forwarded_at", { withTimezone: true }),
+    verifiedBy: uuid("verified_by"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    sppbNumber: varchar("sppb_number", { length: 40 }),
+    approvedBy: uuid("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    issueDocId: uuid("issue_doc_id"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    /** Alasan ditolak/dikembalikan terakhir */
+    lastReason: text("last_reason"),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("supply_requests_school_id_key").on(t.schoolId, t.id),
+    uniqueIndex("supply_requests_school_number_key").on(t.schoolId, t.number),
+    index("supply_requests_school_status_idx").on(t.schoolId, t.status),
+    sameSchool(t, "unitId", units),
+    // issue_doc_id tanpa FK (hindari rujukan melingkar dengan stock_docs.request_id yang ber-FK)
+  ],
+);
+
+export const supplyRequestLines = pgTable(
+  "supply_request_lines",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    requestId: uuid("request_id").notNull(),
+    lineNo: smallint("line_no").notNull(),
+    itemId: uuid("item_id").notNull(),
+    qtyRequested: qty("qty_requested").notNull(),
+    /** Jumlah disetujui (diisi Petugas saat meneruskan/menyalurkan) */
+    qtyApproved: qty("qty_approved"),
+    /** Jumlah benar-benar disalurkan */
+    qtyIssued: qty("qty_issued"),
+    note: text("note"),
+  },
+  (t) => [
+    uniqueIndex("supply_request_lines_req_line_key").on(t.requestId, t.lineNo),
+    sameSchool(t, "requestId", supplyRequests, "cascade"),
+    sameSchool(t, "itemId", supplyItems),
+    check("supply_request_lines_qty_check", sql`${t.qtyRequested} > 0 and (${t.qtyApproved} is null or ${t.qtyApproved} >= 0) and (${t.qtyIssued} is null or ${t.qtyIssued} >= 0)`),
+  ],
+);
+
+/** Jejak alur permintaan — hanya INSERT */
+export const requestEvents = pgTable(
+  "request_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    schoolId: schoolId(),
+    requestId: uuid("request_id").notNull(),
+    action: varchar("action", { length: 20 }).notNull(),
+    fromStatus: requestStatus("from_status"),
+    toStatus: requestStatus("to_status").notNull(),
+    note: text("note"),
+    userId: uuid("user_id"),
+    userName: text("user_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("request_events_req_idx").on(t.schoolId, t.requestId, t.id), sameSchool(t, "requestId", supplyRequests, "cascade")],
+);
+
 /** Tabel ber-school_id yang wajib dilindungi RLS (dipakai migrasi & tes isolasi) */
 export const RLS_TABLES = [
   "school_settings",
@@ -729,4 +827,7 @@ export const RLS_TABLES = [
   "stock_movements",
   "assets",
   "asset_events",
+  "supply_requests",
+  "supply_request_lines",
+  "request_events",
 ] as const;

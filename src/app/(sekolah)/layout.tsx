@@ -9,6 +9,7 @@ import { NavLinks, type NavItem } from "./nav-links";
 
 const NAV: (NavItem & { roles?: Role[] })[] = [
   { href: "/dasbor", label: "Dasbor" },
+  { href: "/permintaan", label: "Permintaan", roles: ["ADMIN", "PETUGAS", "PENGUSUL", "KEPSEK", "VERIFIKATOR"] },
   { href: "/aset", label: "Aset" },
   { href: "/persediaan", label: "Persediaan", roles: ["ADMIN", "PETUGAS", "KEPSEK", "VERIFIKATOR"] },
   { href: "/kode-barang", label: "Kode Barang" },

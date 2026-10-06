@@ -152,7 +152,7 @@ export function WorkflowForm({ v: initial }: { v: { approvalLevels: number; stud
       <FormMessage state={state} />
       <Card>
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Tingkat persetujuan permintaan" error={e.approvalLevels} hint="2 tingkat: Verifikator lalu Kepala Sekolah">
+          <Field label="Tingkat persetujuan permintaan" error={e.approvalLevels} hint="Berlaku pada mode Lengkap. 2 tingkat: Verifikator lalu Kepala Sekolah">
             <Select name="approvalLevels" defaultValue={String(v.approvalLevels)}>
               <option value="1">1 tingkat (Kepala Sekolah)</option>
               <option value="2">2 tingkat (Verifikator → Kepala Sekolah)</option>
@@ -160,8 +160,8 @@ export function WorkflowForm({ v: initial }: { v: { approvalLevels: number; stud
           </Field>
           <Field label="Dokumen pengeluaran persediaan" error={e.distributionMode} hint="Permendagri 47/2021: nota permintaan → surat permintaan → SPPB → BAST">
             <Select name="distributionMode" defaultValue={v.distributionMode}>
-              <option value="RINGKAS">Ringkas (permintaan → SPPB/BAST sekaligus)</option>
-              <option value="LENGKAP">Lengkap (semua dokumen terpisah)</option>
+              <option value="RINGKAS">Ringkas: nota permintaan → Petugas menyetujui & menyalurkan (BAST)</option>
+              <option value="LENGKAP">Lengkap: nota → surat permintaan → SPPB Kepala Sekolah → BAST</option>
             </Select>
           </Field>
           <Field label="Lama pinjam bawaan (hari)" error={e.loanDefaultDays}>

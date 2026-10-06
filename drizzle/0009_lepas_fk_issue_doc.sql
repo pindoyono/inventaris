@@ -1,0 +1,1 @@
+ALTER TABLE "supply_requests" DROP CONSTRAINT "supply_requests_school_id_issue_doc_id_stock_docs_school_id_id_fk";
