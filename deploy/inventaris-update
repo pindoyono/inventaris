@@ -28,7 +28,7 @@ bun install --frozen-lockfile --registry https://registry.npmjs.org/
 sudo sh -c 'set -a; . /etc/inventaris/owner.env; set +a; cd /var/www/inventaris && /usr/local/bin/bun x drizzle-kit migrate && /usr/local/bin/bun scripts/seed-referensi.ts'
 
 # .next/cache menunjuk ke folder milik inventaris; dilepas selama build agar ubuntu bisa menulis
-rm -f .next/cache
+if [ -L .next/cache ]; then rm -f .next/cache; else rm -rf .next/cache; fi
 NEXT_TELEMETRY_DISABLED=1 bun run build
 rm -rf .next/cache
 ln -s /var/lib/inventaris/cache/next .next/cache
