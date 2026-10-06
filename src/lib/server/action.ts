@@ -5,6 +5,7 @@ import type { Role } from "@/lib/roles";
 import type { FieldErrors } from "@/lib/validations";
 import { pgCode } from "@/lib/server/activity";
 import { UserError } from "@/lib/server/errors";
+import { emit } from "@/lib/server/realtime";
 
 export type FormState = { errors?: FieldErrors; ok?: string; values?: Record<string, string> };
 
@@ -31,7 +32,12 @@ export async function runSchoolAction(
     throw e;
   }
   try {
-    return await withSchool(s.schoolId, (tx) => fn(tx, s));
+    return await withSchool(s.schoolId, async (tx) => {
+      const r = await fn(tx, s);
+      // Sinyal realtime untuk dasbor/daftar (terkirim hanya bila transaksi berhasil)
+      if (!r.errors) await emit(tx, { s: s.schoolId, k: "data" });
+      return r;
+    });
   } catch (e) {
     if (e instanceof FormFail) return { errors: e.errors };
     if (e instanceof UserError) return { errors: { _form: e.message } };

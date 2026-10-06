@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Alert, Button, Card, Field, Input, Select } from "@/components/ui";
 import { CONDITION_LABEL } from "@/lib/assets-shared";
 import { createLoanAction, searchLoanableAssets } from "./actions";
+import { ScanButton } from "@/components/scan-button";
 
 type Found = Awaited<ReturnType<typeof searchLoanableAssets>>[number];
 type Picked = Found & { conditionOut: keyof typeof CONDITION_LABEL };
@@ -75,7 +76,11 @@ export function LoanForm({ canLend, users, defaultDue }: { canLend: boolean; use
           <Field label="Batas pengembalian (WITA)"><Input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} /></Field>
         </div>
       </Card>
-      <Card title="Barang">
+      <Card title="Barang" actions={<ScanButton label="Pindai label" onAsset={(a) => {
+        if (a.status !== "DIGUNAKAN") return `${a.name} sedang ${a.status.toLowerCase().replaceAll("_", " ")} — tidak bisa dipinjam`;
+        if (picked.some((p) => p.id === a.id)) return `${a.name} sudah ada di daftar`;
+        setPicked((cur) => (cur.some((p) => p.id === a.id) ? cur : [...cur, { id: a.id, name: a.name, brand: a.brand, bmdCode: a.bmdCode, regNo: a.regNo, condition: a.condition, room: a.room, conditionOut: a.condition }]));
+      }} />}>
         <div className="relative mb-4">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama/merk/no. register barang yang tersedia…" />
           {q.trim().length >= 2 && (

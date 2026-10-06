@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Alert, Button } from "@/components/ui";
 import { CONDITION_LABEL } from "@/lib/assets-shared";
 import { inventoryAction } from "../../actions";
+import { ScanButton } from "@/components/scan-button";
 
 type Cond = keyof typeof CONDITION_LABEL;
 type Line = { id: string; assetId: string | null; label: string; code: string; assetStatus: string | null; recorded: Cond | null; found: boolean | null; condition: Cond | null; note: string | null };
@@ -34,7 +35,14 @@ export function InventorySheet({ id, editable, status, lines }: { id: string; ed
     <div className="space-y-3">
       {msg.ok && <Alert tone="success">{msg.ok}</Alert>}
       {msg.err && <Alert>{msg.err}</Alert>}
-      <p className="text-sm text-slate-600">{checked} dari {rows.length} barang sudah diperiksa.</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm text-slate-600">{checked} dari {rows.length} barang sudah diperiksa.</p>
+        {editable && <ScanButton label="Pindai untuk tandai ditemukan" onAsset={(a) => {
+          const i = rows.findIndex((r) => r.assetId === a.id);
+          if (i < 0) return `${a.name} (${String(a.regNo).padStart(6, "0")}) tercatat di ${a.room ?? "ruangan lain"} — bukan bagian ruangan ini`;
+          setRows((cur) => cur.map((r, j) => (j === i ? { ...r, found: true } : r)));
+        }} />}
+      </div>
       {editable && rows.length > 0 && (
         <div className="flex gap-2 text-sm">
           <button type="button" className="text-teal-700 hover:underline" onClick={() => setRows(rows.map((r) => (r.found === null ? { ...r, found: true } : r)))}>Tandai sisanya ditemukan</button>

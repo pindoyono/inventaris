@@ -1,3 +1,4 @@
+import { Attachments } from "@/components/lampiran/attachments";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -81,6 +82,7 @@ export default async function PeminjamanDetailPage({ params }: PageProps<"/pemin
         own={own}
         lines={lines.map(({ x, name, regNo, condition }) => ({ id: x.id, assetId: x.assetId, label: `${name} · ${String(regNo).padStart(6, "0")}`, out: !!x.outAt && !x.returnedAt, condition }))}
       />
+      <Attachments schoolId={s.schoolId} entity="peminjaman" entityId={l.id} path={`/peminjaman/${l.id}`} canEdit={petugas} title="Foto kondisi barang" />
       {l.loanedAt && <a href={`/cetak/peminjaman/${l.id}`} target="_blank" rel="noreferrer" className="inline-block rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Cetak kartu peminjaman</a>}
     </div>
   );

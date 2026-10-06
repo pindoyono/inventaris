@@ -6,6 +6,10 @@ import { pageSchoolUser } from "@/lib/server/guard";
 import { todayWita } from "@/lib/server/ledger";
 import { loadRegisterParts } from "@/lib/server/register";
 import { kirData } from "@/lib/server/reports";
+import { kirStatus } from "@/lib/server/kir";
+import { hasAnyRole } from "@/lib/roles";
+import Link from "next/link";
+import { KirMark } from "../kir-mark";
 import { fmtRp } from "@/lib/decimal";
 import { ReportHeader, td, th } from "../shared";
 import { PeriodForm } from "../period-form";
@@ -21,7 +25,7 @@ export default async function KirPage({ searchParams }: PageProps<"/laporan/kir"
   const data = await withSchool(s.schoolId, async (tx) => {
     const roomList = await tx.select({ id: rooms.id, name: rooms.name }).from(rooms).orderBy(asc(rooms.name));
     const roomId = roomList.some((r) => r.id === str(sp.ruang)) ? str(sp.ruang) : roomList[0]?.id;
-    return { roomList, roomId, kir: roomId ? await kirData(tx, roomId, per.asOf) : null, parts: await loadRegisterParts(tx, s.schoolId) };
+    return { roomList, roomId, kir: roomId ? await kirData(tx, roomId, per.asOf) : null, parts: await loadRegisterParts(tx, s.schoolId), status: await kirStatus(tx, todayWita()) };
   });
   const k = data.kir;
   const qs = new URLSearchParams({ ruang: data.roomId ?? "", tahun: String(per.year), semester: per.sem });
@@ -35,10 +39,16 @@ export default async function KirPage({ searchParams }: PageProps<"/laporan/kir"
           </select>
         </PeriodForm>
       </ReportHeader>
+      {data.status.some((x) => x.reasons.length) && (
+        <p className="mb-3 text-sm print:hidden">
+          <Link href="/laporan/kir/status" className="text-amber-800 underline">{data.status.filter((x) => x.reasons.length).length} ruangan perlu KIR baru</Link>
+        </p>
+      )}
       {!k ? (
         <p className="text-sm text-slate-500">Belum ada ruangan. Tambahkan di Data Dasar.</p>
       ) : (
         <>
+          {hasAnyRole(s.roles, ["ADMIN", "PETUGAS"]) && <div className="mb-2"><KirMark roomId={k.room.id} reasons={data.status.find((x) => x.roomId === k.room.id)?.reasons ?? []} /></div>}
           <p className="mb-2 text-sm">
             Ruangan: <strong>{k.room.name}</strong>{k.room.building ? ` (${k.room.building}${k.room.floor ? `, lantai ${k.room.floor}` : ""})` : ""} · Penanggung jawab: {k.room.picName ?? "—"}
           </p>

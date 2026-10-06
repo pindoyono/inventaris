@@ -1,3 +1,4 @@
+import { Attachments } from "@/components/lampiran/attachments";
 import { Fragment } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -105,6 +106,8 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
               ))}
             </ul>
           </section>
+
+          <Attachments schoolId={s.schoolId} entity="aset" entityId={a.id} path={`/aset/${a.id}`} canEdit={canEdit} title="Foto & dokumen" />
 
           <section>
             <h2 className="mb-2 font-semibold">Riwayat</h2>

@@ -7,6 +7,7 @@ import { pageSchoolUser } from "@/lib/server/guard";
 import { hasAnyRole, ROLE_LABEL, type Role } from "@/lib/roles";
 import { signOut } from "@/auth";
 import { NavLinks, type NavItem } from "./nav-links";
+import { LiveUpdates } from "./live-updates";
 
 const NAV: (NavItem & { roles?: Role[] })[] = [
   { href: "/dasbor", label: "Dasbor" },
@@ -50,6 +51,9 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
             Inventaris <span className="font-normal text-slate-500">· {school?.shortName}</span>
           </Link>
           <form action={keluar} className="flex items-center gap-3 text-sm text-slate-600">
+            <Link href="/pindai" className="rounded-md px-2 py-1 hover:bg-slate-100" aria-label="Pindai QR label barang" title="Pindai QR">
+              <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 12h10" /></svg>
+            </Link>
             <Link href="/notifikasi" className="relative rounded-md px-2 py-1 hover:bg-slate-100" aria-label={`Notifikasi${unread ? `, ${unread} belum dibaca` : ""}`}>
               <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
               {unread > 0 && <span className="absolute -top-0.5 -right-0.5 rounded-full bg-red-600 px-1.5 text-[10px] font-semibold text-white">{unread > 99 ? "99+" : unread}</span>}
@@ -65,6 +69,7 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
           Penyiapan sekolah belum selesai. <Link href="/pengaturan" className="font-medium underline">Lanjutkan penyiapan</Link>
         </div>
       )}
+      <LiveUpdates />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 print:max-w-none print:p-0">{children}</main>
     </div>
   );

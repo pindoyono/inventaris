@@ -1,3 +1,4 @@
+import { Attachments } from "@/components/lampiran/attachments";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -70,6 +71,7 @@ export default async function PengadaanDetailPage({ params }: PageProps<"/pengad
           {data.assetRows.length > 0 && <p>Aset: {data.assetRows.length} unit — {data.assetRows.slice(0, 8).map((a, i) => <span key={a.id}>{i > 0 && ", "}<Link href={`/aset/${a.id}`} className="text-teal-700 hover:underline">{a.name} {String(a.regNo).padStart(6, "0")}</Link></span>)}{data.assetRows.length > 8 && " …"} · {batches.map((b) => <a key={b} href={`/cetak/label?batch=${b}`} target="_blank" rel="noreferrer" className="ml-2 text-teal-700 hover:underline">cetak label</a>)}</p>}
         </section>
       )}
+      <Attachments schoolId={s.schoolId} entity="pengadaan" entityId={p.id} path={`/pengadaan/${p.id}`} canEdit={hasAnyRole(s.roles, ["ADMIN", "PETUGAS", "KEPSEK"])} title="Nota, kuitansi & dokumen" />
       {hasAnyRole(s.roles, ["ADMIN", "PETUGAS"]) && (
         <ProcActions id={p.id} status={p.status} today={todayWita()} orderDate={p.orderDate} opts={data.opts}
           lines={lines.map(({ l }) => ({ id: l.id, kind: l.kind, label: l.description, itemId: l.itemId, left: String(Number(l.qty) - Number(l.qtyReceived)) }))} />

@@ -3,6 +3,7 @@ import { and, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { db, type Tx } from "@/db";
 import { emailOutbox, notifications, userRoles, users } from "@/db/schema";
 import { sendMailStrict, url } from "@/lib/server/mail";
+import { emit } from "@/lib/server/realtime";
 import type { Role } from "@/lib/roles";
 
 export type Msg = { title: string; body?: string; link?: string };
@@ -25,6 +26,7 @@ export async function notifyUsers(tx: Tx, schoolId: string, userIds: string[], m
   const ids = [...new Set(userIds)].filter((id) => id && id !== exceptUserId);
   if (!ids.length) return 0;
   await tx.insert(notifications).values(ids.map((userId) => ({ schoolId, userId, title: msg.title, body: msg.body ?? null, link: msg.link ?? null })));
+  await emit(tx, { s: schoolId, k: "notif", u: ids });
   const withEmail = await tx
     .select({ email: users.email })
     .from(users)

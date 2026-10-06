@@ -1265,6 +1265,44 @@ export const procurementLines = pgTable(
   ],
 );
 
+// ─────────────────────────────────────────────────────────── KIR tercetak & lampiran
+
+/** Arsip KIR yang sudah dicetak & ditempel (Permendagri 47/2021: diperbarui tiap semester & tiap perubahan) */
+export const kirSnapshots = pgTable(
+  "kir_snapshots",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    roomId: uuid("room_id").notNull(),
+    period: varchar("period", { length: 20 }).notNull(),
+    asOf: date("as_of").notNull(),
+    picName: text("pic_name"),
+    units: integer("units").notNull(),
+    total: money("total").notNull(),
+    rows: jsonb("rows").notNull(),
+    createdBy: uuid("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("kir_snapshots_room_idx").on(t.schoolId, t.roomId, t.createdAt), sameSchool(t, "roomId", rooms, "cascade")],
+);
+
+/** Lampiran berkas (foto/nota/scan) pada data apa pun milik sekolah */
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    entity: varchar("entity", { length: 30 }).notNull(),
+    entityId: uuid("entity_id").notNull(),
+    fileName: text("file_name").notNull(),
+    storedName: text("stored_name").notNull(),
+    caption: text("caption"),
+    uploadedBy: uuid("uploaded_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("attachments_entity_idx").on(t.schoolId, t.entity, t.entityId)],
+);
+
 // ─────────────────────────────────────────────────────────── impor Excel
 
 /** Hasil baca berkas impor (pratinjau) — dikonfirmasi lalu diproses; dihapus otomatis setelah 2 hari */
@@ -1332,4 +1370,6 @@ export const RLS_TABLES = [
   "proposal_events",
   "procurements",
   "procurement_lines",
+  "kir_snapshots",
+  "attachments",
 ] as const;

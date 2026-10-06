@@ -26,7 +26,8 @@ export function ReportHeader({ parts, title, subtitle, children, csv, print }: {
           </p>
         </div>
         <div className="flex gap-2 print:hidden">
-          {csv && <a href={csv} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Unduh Excel (CSV)</a>}
+          {csv && <a href={`${csv}${csv.includes("?") ? "&" : "?"}format=xlsx`} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Unduh Excel</a>}
+          {csv && <a href={csv} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">CSV</a>}
           {print ? <a href={print} target="_blank" rel="noreferrer" className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800">Cetak</a> : <PrintButton />}
         </div>
       </div>

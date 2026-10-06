@@ -134,6 +134,20 @@
       "when": 1791304433281,
       "tag": "0018_rls_pengadaan",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791324408430,
+      "tag": "0019_kir_lampiran",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791324409567,
+      "tag": "0020_rls_kir_lampiran",
+      "breakpoints": true
     }
   ]
 }

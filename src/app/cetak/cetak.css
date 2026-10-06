@@ -97,3 +97,8 @@ table.data { table-layout: auto; }
 .label .reg.atas { border-bottom: 1px solid #000; padding-bottom: .4mm; margin-bottom: .4mm; }
 .label .nm { font-size: 7.5pt; margin-top: .8mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .label .sm { font-size: 6pt; color: #b91c1c; font-weight: bold; }
+
+/* Kertas F4 / Folio (215 × 330 mm) — dipilih di bilah cetak */
+html[data-kertas="f4"] .a4-potret { width: 215mm; min-height: 330mm; }
+html[data-kertas="f4"] .a4-lanskap { width: 330mm; min-height: 215mm; }
+@media print { html[data-kertas="f4"] .halaman { min-height: auto; } }

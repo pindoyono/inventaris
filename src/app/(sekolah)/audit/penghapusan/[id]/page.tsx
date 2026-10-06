@@ -1,3 +1,4 @@
+import { Attachments } from "@/components/lampiran/attachments";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -80,6 +81,7 @@ export default async function UsulanDetailPage({ params, searchParams }: PagePro
           <tfoot className="bg-slate-50 font-medium"><tr><td colSpan={4} className="px-3 py-2 text-right">Jumlah {lines.length} barang</td><td className="px-3 py-2 text-right">{fmtRp(total)}</td><td colSpan={2} /></tr></tfoot>
         </table>
       </div>
+      <Attachments schoolId={s.schoolId} entity="penghapusan" entityId={d.id} path={`/audit/penghapusan/${d.id}`} canEdit={petugas || hasAnyRole(s.roles, ["KEPSEK"])} title="Foto barang & dokumen pendukung" />
       <DisposalActions
         id={d.id}
         status={d.status}

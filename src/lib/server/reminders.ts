@@ -78,6 +78,17 @@ export async function runDailyReminders(now = new Date()) {
             link: "/audit/opname",
           });
       }
+      // KIR perlu diperbarui — diingatkan tiap Senin
+      if (new Date(`${wita}T12:00:00+08:00`).getUTCDay() === 1) {
+        const { kirStatus } = await import("@/lib/server/kir");
+        const need = (await kirStatus(tx, wita)).filter((r) => r.reasons.length);
+        if (need.length)
+          n += await notifyUsers(tx, schoolId, petugas, {
+            title: `${need.length} ruangan perlu KIR baru`,
+            body: need.slice(0, 20).map((r) => `• ${r.room}: ${r.reasons.join(", ")}`).join("\n"),
+            link: "/laporan/kir/status",
+          });
+      }
       return n;
     });
   }
