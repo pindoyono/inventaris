@@ -129,3 +129,27 @@ describe("mode lengkap 2 tingkat", () => {
     expect(await err(tx((t) => t.update(requestEvents).set({ note: "x" })))).toBe("pg:42501");
   });
 });
+
+describe("BAST hasil permintaan dibatalkan", () => {
+  test("nota kembali ke tahap sebelum disalurkan dan bisa disalurkan ulang", async () => {
+    const { cancelDoc } = await import("@/lib/server/ledger");
+    const { reopenRequestOfCancelledDoc } = await import("@/lib/server/requests");
+    await setFlow("LENGKAP", 1);
+    const id = await draft("guru", U1, [{ itemId: hvs, qty: "1" }]);
+    await act("guru", id, { action: "AJUKAN" });
+    await act("petugas", id, { action: "TERUSKAN" });
+    await act("kepsek", id, { action: "SETUJUI" });
+    await act("petugas", id, { action: "SALURKAN", warehouseId: G });
+    const before = await bal(hvs);
+    const r = await status(id);
+    await tx(async (t) => {
+      await cancelDoc(t, S, who.petugas.userId, r.issueDocId!, "salah gudang");
+      await reopenRequestOfCancelledDoc(t, who.petugas, r.issueDocId!);
+    });
+    const after = await status(id);
+    expect([after.status, after.issueDocId]).toEqual(["DISETUJUI", null]);
+    expect(Number(await bal(hvs))).toBe(Number(before) + 1);
+    await act("petugas", id, { action: "SALURKAN", warehouseId: G });
+    expect((await status(id)).status).toBe("SELESAI");
+  });
+});

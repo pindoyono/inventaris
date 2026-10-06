@@ -9,6 +9,9 @@ import { allowedActions, type ReqAction, type ReqStatus } from "@/lib/requests-s
 import { normalizeIdNumber, parseDec, toDec } from "@/lib/decimal";
 import { hasAnyRole } from "@/lib/roles";
 import type { SchoolSession } from "@/lib/tenant";
+import { notifyUsers, userIdsWithRoles } from "@/lib/server/inbox";
+import { REQ_STATUS_LABEL } from "@/lib/requests-shared";
+import { stockDocs } from "@/db/schema";
 
 export type ReqLineInput = { itemId: string; qty: string; note?: string | null };
 
@@ -190,7 +193,56 @@ export async function actOnRequest(tx: Tx, s: SchoolSession, requestId: string, 
     }
   }
   await event(tx, s, requestId, input.action, r.status, to!, [docNumber, reason].filter(Boolean).join(" — ") || null);
+  await notifyRequest(tx, s, { ...r, number: r.number ?? docNumber }, input.action, to!, flow, reason);
   return { status: to!, docNumber };
+}
+
+/** Beri tahu peran pada tahap berikutnya; hasil akhir ke pengusul */
+async function notifyRequest(
+  tx: Tx,
+  s: SchoolSession,
+  r: { id: string; number: string | null; requestedBy: string },
+  action: ReqAction,
+  to: ReqStatus,
+  flow: { mode: string; levels: number },
+  reason: string | null,
+) {
+  const link = `/permintaan/${r.id}`;
+  const no = r.number ?? "";
+  const next: Partial<Record<ReqAction, Parameters<typeof userIdsWithRoles>[1]>> = {
+    AJUKAN: ["PETUGAS"],
+    TERUSKAN: flow.levels >= 2 ? ["VERIFIKATOR"] : ["KEPSEK"],
+    VERIFIKASI: ["KEPSEK"],
+    SETUJUI: ["PETUGAS"],
+  };
+  const roles = next[action];
+  if (roles)
+    await notifyUsers(tx, s.schoolId, await userIdsWithRoles(tx, roles), {
+      title: `Nota permintaan ${no} menunggu tindakan Anda`,
+      body: `${s.userName}: ${REQ_STATUS_LABEL[to]}.`,
+      link,
+    }, s.userId);
+  if (["SETUJUI", "SALURKAN", "TOLAK", "KEMBALIKAN"].includes(action))
+    await notifyUsers(tx, s.schoolId, [r.requestedBy], {
+      title: `Nota permintaan ${no}: ${REQ_STATUS_LABEL[to]}`,
+      body: reason ? `Alasan: ${reason}` : action === "SALURKAN" ? "Barang sudah disalurkan. Silakan diambil/diterima." : undefined,
+      link,
+    }, s.userId);
+}
+
+/** BAST hasil permintaan dibatalkan → nota kembali ke tahap sebelum disalurkan */
+export async function reopenRequestOfCancelledDoc(tx: Tx, s: SchoolSession, docId: string) {
+  const [d] = await tx.select({ requestId: stockDocs.requestId }).from(stockDocs).where(eq(stockDocs.id, docId));
+  if (!d?.requestId) return;
+  const [r] = await tx.select().from(supplyRequests).where(eq(supplyRequests.id, d.requestId)).for("update");
+  if (!r || r.status !== "SELESAI" || r.issueDocId !== docId) return;
+  const to: ReqStatus = r.mode === "LENGKAP" ? "DISETUJUI" : "DIAJUKAN";
+  await tx.update(supplyRequestLines).set({ qtyIssued: null, ...(r.mode === "RINGKAS" ? { qtyApproved: null } : {}) }).where(eq(supplyRequestLines.requestId, r.id));
+  await tx
+    .update(supplyRequests)
+    .set({ status: to, issueDocId: null, closedAt: null, updatedAt: new Date(), ...(r.mode === "RINGKAS" ? { approvedBy: null, approvedAt: null } : {}) })
+    .where(eq(supplyRequests.id, r.id));
+  await event(tx, s, r.id, "BAST_BATAL", "SELESAI", to, "BAST dibatalkan; menunggu penyaluran ulang");
 }
 
 /** Jumlah permintaan yang menunggu tindakan pengguna ini (untuk dasbor) */

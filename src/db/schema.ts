@@ -64,6 +64,7 @@ export const requestStatus = pgEnum("request_status", [
   "DITOLAK",
   "DIBATALKAN",
 ]);
+export const loanStatus = pgEnum("loan_status", ["DIAJUKAN", "DIPINJAM", "SELESAI", "DITOLAK", "DIBATALKAN"]);
 /** Jenis dokumen stok persediaan */
 export const stockDocKind = pgEnum("stock_doc_kind", [
   "SALDO_AWAL",
@@ -172,6 +173,27 @@ export const qrTokens = pgTable("qr_tokens", {
   refId: uuid("ref_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Antrean email (tanpa RLS agar pengirim latar belakang bisa memproses semua sekolah).
+ * Ditulis dalam transaksi yang sama dengan kejadiannya, dikirim setelah respons / oleh timer (coba ulang).
+ */
+export const emailOutbox = pgTable(
+  "email_outbox",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    schoolId: uuid("school_id").references(() => schools.id, { onDelete: "cascade" }),
+    to: text("to").notNull(),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    attempts: smallint("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    nextTryAt: timestamp("next_try_at", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("email_outbox_pending_idx").on(t.nextTryAt).where(sql`${t.sentAt} is null`)],
+);
 
 // ─────────────────────────────────────────────────────────── tabel sekolah (RLS per school_id)
 
@@ -800,6 +822,79 @@ export const requestEvents = pgTable(
   (t) => [index("request_events_req_idx").on(t.schoolId, t.requestId, t.id), sameSchool(t, "requestId", supplyRequests, "cascade")],
 );
 
+// ─────────────────────────────────────────────────────────── peminjaman (internal sekolah) & notifikasi
+
+/** Peminjaman alat oleh guru/siswa di dalam sekolah (bukan pinjam pakai BMD antar-instansi) */
+export const loans = pgTable(
+  "loans",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    number: varchar("number", { length: 40 }),
+    status: loanStatus("status").notNull(),
+    /** Peminjam berakun (opsional); siswa tanpa akun cukup nama + kelas/NIS */
+    borrowerUserId: uuid("borrower_user_id"),
+    borrowerName: text("borrower_name").notNull(),
+    borrowerInfo: text("borrower_info"),
+    purpose: text("purpose"),
+    loanedAt: timestamp("loaned_at", { withTimezone: true }),
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+    createdBy: uuid("created_by").notNull(),
+    handedBy: uuid("handed_by"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    lastReason: text("last_reason"),
+    /** Pengingat jatuh tempo terakhir dikirim (hindari ganda) */
+    remindedAt: timestamp("reminded_at", { withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("loans_school_id_key").on(t.schoolId, t.id),
+    uniqueIndex("loans_school_number_key").on(t.schoolId, t.number),
+    index("loans_school_status_idx").on(t.schoolId, t.status, t.dueAt),
+    sameSchool(t, "borrowerUserId", users),
+  ],
+);
+
+export const loanLines = pgTable(
+  "loan_lines",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    loanId: uuid("loan_id").notNull(),
+    assetId: uuid("asset_id").notNull(),
+    conditionOut: assetCondition("condition_out"),
+    /** Diisi saat barang diserahkan; null selama masih diajukan */
+    outAt: timestamp("out_at", { withTimezone: true }),
+    conditionIn: assetCondition("condition_in"),
+    returnedAt: timestamp("returned_at", { withTimezone: true }),
+    returnedTo: uuid("returned_to"),
+    returnNote: text("return_note"),
+  },
+  (t) => [
+    uniqueIndex("loan_lines_loan_asset_key").on(t.loanId, t.assetId),
+    // Satu aset hanya boleh sedang dipinjam di satu peminjaman
+    uniqueIndex("loan_lines_asset_out_key").on(t.assetId).where(sql`${t.outAt} is not null and ${t.returnedAt} is null`),
+    sameSchool(t, "loanId", loans, "cascade"),
+    sameSchool(t, "assetId", assets),
+  ],
+);
+
+/** Notifikasi di aplikasi (lonceng) per pengguna */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    schoolId: schoolId(),
+    userId: uuid("user_id").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    link: text("link"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("notifications_user_idx").on(t.schoolId, t.userId, t.id), sameSchool(t, "userId", users, "cascade")],
+);
+
 /** Tabel ber-school_id yang wajib dilindungi RLS (dipakai migrasi & tes isolasi) */
 export const RLS_TABLES = [
   "school_settings",
@@ -830,4 +925,7 @@ export const RLS_TABLES = [
   "supply_requests",
   "supply_request_lines",
   "request_events",
+  "loans",
+  "loan_lines",
+  "notifications",
 ] as const;

@@ -71,6 +71,20 @@
       "when": 1791294665275,
       "tag": "0009_lepas_fk_issue_doc",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791295569685,
+      "tag": "0010_peminjaman_notifikasi",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791295570629,
+      "tag": "0011_rls_peminjaman",
+      "breakpoints": true
     }
   ]
 }

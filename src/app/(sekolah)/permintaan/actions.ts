@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { processOutbox } from "@/lib/server/inbox";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { runSchoolAction, type FormState } from "@/lib/server/action";
@@ -35,6 +37,7 @@ export async function saveRequestAction(payload: RequestPayload, andSubmit: bool
   });
   if (res.errors) return res;
   revalidatePath("/permintaan", "layout");
+  if (andSubmit) after(() => processOutbox().catch((e) => console.error("outbox", e)));
   redirect(`/permintaan/${id}`);
 }
 
@@ -57,5 +60,6 @@ export async function requestActAction(id: string, input: z.input<typeof actSche
   });
   revalidatePath("/permintaan", "layout");
   revalidatePath("/dasbor");
+  after(() => processOutbox().catch((e) => console.error("outbox", e)));
   return res;
 }

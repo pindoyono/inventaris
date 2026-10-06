@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { schools } from "@/db/schema";
+import { notifications, schools } from "@/db/schema";
+import { withSchool } from "@/lib/tenant";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { hasAnyRole, ROLE_LABEL, type Role } from "@/lib/roles";
 import { signOut } from "@/auth";
@@ -10,6 +11,7 @@ import { NavLinks, type NavItem } from "./nav-links";
 const NAV: (NavItem & { roles?: Role[] })[] = [
   { href: "/dasbor", label: "Dasbor" },
   { href: "/permintaan", label: "Permintaan", roles: ["ADMIN", "PETUGAS", "PENGUSUL", "KEPSEK", "VERIFIKATOR"] },
+  { href: "/peminjaman", label: "Peminjaman", roles: ["ADMIN", "PETUGAS", "KEPSEK", "VERIFIKATOR", "PEMINJAM"] },
   { href: "/aset", label: "Aset" },
   { href: "/persediaan", label: "Persediaan", roles: ["ADMIN", "PETUGAS", "KEPSEK", "VERIFIKATOR"] },
   { href: "/kode-barang", label: "Kode Barang" },
@@ -25,6 +27,9 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
     .select({ shortName: schools.shortName, setupCompletedAt: schools.setupCompletedAt })
     .from(schools)
     .where(eq(schools.id, s.schoolId));
+  const [{ unread }] = await withSchool(s.schoolId, (tx) =>
+    tx.select({ unread: count() }).from(notifications).where(and(eq(notifications.userId, s.userId), isNull(notifications.readAt))),
+  );
   const items = NAV.filter((n) => !n.roles || hasAnyRole(s.roles, n.roles)).map(({ href, label }) => ({ href, label }));
 
   async function keluar() {
@@ -40,6 +45,10 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
             Inventaris <span className="font-normal text-slate-500">· {school?.shortName}</span>
           </Link>
           <form action={keluar} className="flex items-center gap-3 text-sm text-slate-600">
+            <Link href="/notifikasi" className="relative rounded-md px-2 py-1 hover:bg-slate-100" aria-label={`Notifikasi${unread ? `, ${unread} belum dibaca` : ""}`}>
+              <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
+              {unread > 0 && <span className="absolute -top-0.5 -right-0.5 rounded-full bg-red-600 px-1.5 text-[10px] font-semibold text-white">{unread > 99 ? "99+" : unread}</span>}
+            </Link>
             <Link href="/akun/password" title={s.roles.map((r) => ROLE_LABEL[r as Role] ?? r).join(", ")} className="hover:underline">{s.userName}</Link>
             <button className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-50">Keluar</button>
           </form>

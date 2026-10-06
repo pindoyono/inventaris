@@ -40,3 +40,15 @@ export async function sendMail(to: string | null | undefined, subject: string, l
 }
 
 export const url = (path: string) => BASE_URL + path;
+
+/** Seperti sendMail tetapi melempar error (untuk antrean yang mencoba ulang). Tanpa SMTP = dianggap terkirim (dev). */
+export async function sendMailStrict(to: string, subject: string, lines: string[]) {
+  const t = getTransporter();
+  if (!t) return;
+  await t.sendMail({
+    from: process.env.MAIL_FROM ?? process.env.SMTP_USER,
+    to,
+    subject: `[Inventaris] ${subject}`,
+    text: [...lines, "", "—", "Inventaris · Pengelolaan BMD sekolah negeri", BASE_URL].join("\n"),
+  });
+}

@@ -11,6 +11,7 @@ import { cancelDoc, postDoc } from "@/lib/server/ledger";
 import { createSupplyItem, deleteDraftDoc, saveDraftDoc, type DocInput } from "@/lib/server/supply";
 import { requireSchoolUser } from "@/lib/tenant";
 import { searchCodes } from "@/lib/server/code-search";
+import { reopenRequestOfCancelledDoc } from "@/lib/server/requests";
 import { normalizeIdNumber, parseDec, toDec } from "@/lib/decimal";
 import { fieldErrors, formToObject } from "@/lib/validations";
 
@@ -145,6 +146,7 @@ export async function cancelDocAction(docId: string, _prev: FormState, fd: FormD
   if (reason.length < 5) return { errors: { reason: "Tulis alasan pembatalan (minimal 5 karakter)" } };
   const res = await runSchoolAction(["ADMIN", "PETUGAS", "KEPSEK"], async (tx, s) => {
     await cancelDoc(tx, s.schoolId, s.userId, docId, reason.slice(0, 300));
+    await reopenRequestOfCancelledDoc(tx, s, docId);
     await logActivity(tx, s, "BATAL", "dokumen_stok", docId, null, { reason });
     return { ok: "Dokumen dibatalkan; stok sudah dikembalikan." };
   });
