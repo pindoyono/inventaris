@@ -117,3 +117,24 @@ export function registerCode(p: RegisterParts, a: { isIntra: boolean; acqDate: s
   const bottom = `${a.bmdCode}.${String(a.regNo).padStart(6, "0")}`;
   return { top, bottom, provisional };
 }
+
+/** [1,2,3,5,7,8] → "000001 s/d 000003, 000005, 000007 s/d 000008" */
+export function compressRegNos(nos: number[]) {
+  const sorted = [...new Set(nos)].sort((a, b) => a - b);
+  const pad = (n: number) => String(n).padStart(6, "0");
+  const parts: string[] = [];
+  for (let i = 0; i < sorted.length; ) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+    parts.push(j > i ? `${pad(sorted[i])} s/d ${pad(sorted[j])}` : pad(sorted[i]));
+    i = j + 1;
+  }
+  return parts.join(", ");
+}
+
+/** Periode laporan: semester (Permendagri 47/2021) atau setahun */
+export function reportPeriod(year: number, sem: string) {
+  if (sem === "1") return { from: `${year}-01-01`, to: `${year}-06-30`, label: `Semester I Tahun ${year}` };
+  if (sem === "2") return { from: `${year}-07-01`, to: `${year}-12-31`, label: `Semester II Tahun ${year}` };
+  return { from: `${year}-01-01`, to: `${year}-12-31`, label: `Tahun ${year}` };
+}

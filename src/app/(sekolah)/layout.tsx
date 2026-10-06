@@ -14,6 +14,7 @@ const NAV: (NavItem & { roles?: Role[] })[] = [
   { href: "/peminjaman", label: "Peminjaman", roles: ["ADMIN", "PETUGAS", "KEPSEK", "VERIFIKATOR", "PEMINJAM"] },
   { href: "/aset", label: "Aset" },
   { href: "/persediaan", label: "Persediaan", roles: ["ADMIN", "PETUGAS", "KEPSEK", "VERIFIKATOR"] },
+  { href: "/laporan", label: "Laporan", roles: ["ADMIN", "PETUGAS", "KEPSEK", "VERIFIKATOR"] },
   { href: "/kode-barang", label: "Kode Barang" },
   { href: "/pengaturan", label: "Penyiapan", roles: ["ADMIN"] },
   { href: "/data-dasar", label: "Data Dasar", roles: ["ADMIN", "PETUGAS"] },
@@ -39,7 +40,7 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="border-b border-slate-200 bg-white print:hidden">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <Link href="/dasbor" className="font-semibold">
             Inventaris <span className="font-normal text-slate-500">· {school?.shortName}</span>
@@ -56,11 +57,11 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
         <NavLinks items={items} />
       </header>
       {!school?.setupCompletedAt && hasAnyRole(s.roles, ["ADMIN"]) && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900 print:hidden">
           Penyiapan sekolah belum selesai. <Link href="/pengaturan" className="font-medium underline">Lanjutkan penyiapan</Link>
         </div>
       )}
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }
