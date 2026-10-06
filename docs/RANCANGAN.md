@@ -1,9 +1,11 @@
-# Rancangan Sistem Inventaris Sekolah (Multi-Sekolah)
+# Rancangan Sistem Inventaris Sekolah Negeri
 
-Status: **draf untuk disetujui** · Versi 0.1 · 6 Oktober 2026
-Sumber kebutuhan: `system_architecture_prd_summary.md` + 4 putaran tanya-jawab keputusan (ringkasan di §1).
+Status: **draf untuk disetujui** · Versi 0.2 · 6 Oktober 2026
+Sumber kebutuhan: `system_architecture_prd_summary.md` + 5 putaran keputusan + kajian regulasi (§2).
 
-Dokumen ini adalah acuan tunggal selama pengembangan. Bagian yang masih perlu keputusan ditandai **[KEPUTUSAN]** di §14.
+Dokumen ini adalah acuan tunggal selama pengembangan. Hal yang masih perlu ditindaklanjuti ditandai **[TINDAK LANJUT]** di §15.
+
+**Perubahan dari v0.1:** cakupan dibatasi ke sekolah negeri milik Pemda; kategori barang memakai kodefikasi resmi Permendagri 108/2016 (sebelumnya tertulis keliru "108/2014"); alur & dokumen persediaan, KIR, pemeliharaan, inventarisasi mengikuti Permendagri 47/2021; penghapusan mengikuti Permendagri 19/2016 jo. 7/2024 (diputus kepala daerah); kode register & label resmi; sumber dana mengikuti Juknis BOSP 2026; dokumen cetak berbasis template HTML.
 
 ---
 
@@ -11,451 +13,351 @@ Dokumen ini adalah acuan tunggal selama pengembangan. Bagian yang masih perlu ke
 
 | Aspek | Keputusan |
 |---|---|
-| Cakupan | Semua jenjang (SD/MI, SMP/MTs, SMA/MA/SMK, SLB, lainnya); satu platform, banyak sekolah |
+| Cakupan | **Khusus sekolah negeri milik Pemerintah Daerah** — SD/SMP Negeri (kab/kota) dan SMA/SMK/SLB Negeri (provinsi). Barangnya adalah Barang Milik Daerah (BMD). Madrasah (BMN/Kemenag) dan sekolah swasta **tidak dilayani**; hal ini dinyatakan jelas di beranda & form pendaftaran |
 | Identitas sekolah | **NPSN** (unik). Pendaftaran berstatus *menunggu* sampai disetujui pengelola platform |
+| Kategori barang | **Kodefikasi BMD Permendagri 108/2016** (13.780 kode terverifikasi, `data/bmd/`) + kode lokal Pemda bila ada |
 | Stack | Next.js 16 (App Router) + TypeScript + PostgreSQL + Drizzle ORM + Auth.js v5 + Tailwind |
-| Infrastruktur | systemd + Nginx + PostgreSQL yang sudah ada; realtime via SSE + Postgres `LISTEN/NOTIFY` (tanpa Redis); file di disk lokal di balik antarmuka storage (siap pindah ke S3/MinIO) |
+| Infrastruktur | systemd + Nginx + PostgreSQL yang sudah ada; realtime via SSE + Postgres `LISTEN/NOTIFY`; file di disk lokal di balik antarmuka storage |
 | Pengguna | Peran tetap yang bisa diaktifkan/dinonaktifkan per sekolah; satu orang boleh memegang beberapa peran |
 | Akun siswa | Opsional per sekolah (default mati; petugas mencatat peminjaman atas nama siswa) |
-| Aset tetap | Dicatat **per unit**: kode + QR sendiri, nomor seri, kondisi, lokasi |
-| Barang habis pakai | Stok per **gudang** (banyak gudang per sekolah); nilai dihitung **FIFO** |
-| Persetujuan usulan | 1 atau 2 tingkat, diatur per sekolah (default 2: Verifikator → Kepala Sekolah) |
-| Dokumen cetak | Kartu Penerimaan, Kartu Pengeluaran, Kartu Peminjaman, Kartu Stok, KIR, KIB, Laporan Mutasi Persediaan, Berita Acara (penerimaan/serah terima, penghapusan, stock opname) |
-| Audit | Stock opname, penghapusan barang, pemeliharaan aset, log aktivitas |
-| Notifikasi | Di aplikasi + email (SMTP) |
-| Kode barang | Kode internal otomatis (untuk QR) + kolom opsional Kode Barang BMD (Permendagri 108/2014) |
-| PWA | Bisa di-install & scan QR via kamera; **transaksi wajib online** (tidak ada mode offline) |
-| Nama & alamat | **Inventaris** — `inventaris.ankdev.id` |
-| Pengembangan | Bertahap; setiap fase diuji lalu langsung live (§12) |
+| Aset tetap | Dicatat **per unit** dengan **kode register** resmi (§6.5) & label QR |
+| Persediaan | Metode **perpetual**, stok per gudang, penilaian **FIFO** (Permendagri 47/2021 Pasal 33–34), item diberi **NUSP** |
+| Persetujuan usulan | 1 atau 2 tingkat per sekolah (default 2: Verifikator → Kepala Sekolah) |
+| Penghapusan | Sekolah **mengusulkan**; barang baru dihapus setelah **SK kepala daerah** dicatat (Permendagri 19/2016 jo. 7/2024) |
+| Dokumen cetak | Template HTML siap cetak (A4/F4, potret/lanskap) → PDF lewat browser; format mengikuti unsur wajib Permendagri 47/2021 (§8) |
+| Audit | Stock opname per semester, penghapusan, pemeliharaan (kartu pemeliharaan), log aktivitas |
+| Notifikasi | Di aplikasi + email via Google Workspace `admin@smkn2malinau.sch.id` (App Password) |
+| Tahun anggaran | Januari–Desember |
+| Data aplikasi persediaan lama | Tidak dipindahkan (kategorinya tidak mengikuti BMD); sekolah mulai dengan saldo awal |
+| PWA | Bisa di-install & scan QR via kamera; transaksi wajib online |
+| Nama & alamat | **Inventaris** — `inventaris.ankdev.id`, repo `pindoyono/inventaris` |
+| Pengembangan | Bertahap; setiap fase diuji lalu langsung live (§13) |
 
 ---
 
-## 2. Konsep Inti
+## 2. Dasar Regulasi & Implikasinya
 
-Lima prinsip yang dipegang di seluruh rancangan:
+Salinan regulasi: `/home/ubuntu/regulasi/` (PDF resmi).
 
-1. **Setiap data milik satu sekolah.** Semua tabel operasional punya `school_id`. Isolasi ditegakkan di dua lapis: kode aplikasi (query selalu memakai `school_id` dari sesi) **dan** Row-Level Security PostgreSQL (§9.2). Bug satu query tidak bisa membocorkan data sekolah lain.
-2. **Stok berasal dari buku besar, bukan diedit.** Angka stok hanya berubah lewat *posting* dokumen (penerimaan, pengeluaran, mutasi, penyesuaian). Setiap posting menulis baris `stock_movements` yang tidak bisa diubah/dihapus. Kartu Stok = isi buku besar itu.
-3. **Dokumen: draf → diposting → (dibatalkan lewat dokumen pembalik).** Setelah diposting, dokumen terkunci. Koreksi dilakukan dengan dokumen pembalik yang juga tercatat — jejak audit utuh.
-4. **Satu konsep untuk semua jenjang.** Istilah khas SMK (jurusan, lab, toolman) dipetakan ke konsep umum: *Unit* (jurusan/lab/bidang/kelas), *Gudang*, *Ruangan*, *Petugas Barang*. Sekolah memilih label yang cocok saat setup.
-5. **Tidak ada stok negatif & tidak ada selisih.** Posting memakai transaksi ACID + `SELECT … FOR UPDATE` pada baris saldo & lot; constraint database (`CHECK qty >= 0`) menjadi pengaman terakhir.
+| Regulasi | Dipakai untuk | Implikasi di sistem |
+|---|---|---|
+| **PP 27/2014 jo. PP 28/2020** — Pengelolaan BMN/BMD | Payung hukum | Istilah & peran pengelolaan BMD |
+| **Permendagri 19/2016 jo. 7/2024** — Pedoman Pengelolaan BMD | Penggunaan, pemeliharaan, penghapusan | Penghapusan diusulkan sekolah dan **diputus gubernur/bupati/wali kota**; permohonan wajib memuat tahun perolehan, kode barang, kode register, nama, jenis, identitas, kondisi, lokasi, nilai buku/perolehan; kehilangan karena kecurian wajib surat keterangan kepolisian |
+| **Permendagri 108/2016** — Penggolongan & Kodefikasi BMD | Kode barang, kode lokasi, kode register | Kategori = kode 7 tingkat; kode register di label tiap aset (kecuali persediaan); kode tingkat 7 tambahan boleh ditetapkan kepala daerah |
+| **Permendagri 47/2021** — Pembukuan, Inventarisasi, Pelaporan BMD | Format & alur pembukuan | Persediaan perpetual + FIFO; buku penerimaan/pengeluaran/penyaluran persediaan, kartu barang persediaan, daftar persediaan rusak/usang; alur nota permintaan → surat permintaan → surat perintah penyaluran → BAST; stock opname **setiap semester**; KIR rangkap 2, diperbarui tiap semester & tiap perubahan; kartu pemeliharaan; lembar kerja & laporan hasil inventarisasi |
+| **Permendikdasmen 8/2026** — Juknis BOSP | Sumber dana | Sumber dana BOS Reguler/Kinerja/Afirmasi + komponen penggunaannya (Pasal 42–46) sebagai pilihan di pengadaan, agar selaras dengan RKAS/ARKAS |
+
+> **Catatan:** lampiran Permendagri 47/2021 yang tersedia memuat petunjuk teknis dan nomor format (mis. Format II.I.5 Kartu Barang Persediaan) tetapi **tidak memuat tabel kolomnya**. Format cetak sistem disusun dari unsur wajib yang disebut regulasi + format yang dipakai Pemda (mis. KIB B 16 kolom), lalu disetujui Anda (§8).
 
 ---
 
-## 3. Pengguna & Hak Akses
+## 3. Konsep Inti
 
-### 3.1 Jenis akun
+1. **Setiap data milik satu sekolah.** Semua tabel operasional punya `school_id`; isolasi di dua lapis — kode aplikasi **dan** Row-Level Security PostgreSQL (§10.2).
+2. **Stok berasal dari buku besar, bukan diedit** (metode perpetual). Angka stok hanya berubah lewat *posting* dokumen; setiap posting menulis baris `stock_movements` yang tidak bisa diubah/dihapus. Kartu Barang Persediaan = isi buku besar itu.
+3. **Dokumen: draf → diposting → (dibatalkan lewat dokumen pembalik).** Setelah diposting, dokumen terkunci; jejak audit utuh.
+4. **Mengikuti BMD, ramah jenjang.** Kode barang, kode register, dan dokumen mengikuti regulasi BMD; struktur sekolah (unit, ruangan, gudang) tetap fleksibel untuk SD sampai SMK.
+5. **Tidak ada stok negatif & tidak ada selisih.** Transaksi ACID + `SELECT … FOR UPDATE` + constraint database.
 
+---
+
+## 4. Pengguna, Jabatan BMD & Hak Akses
+
+### 4.1 Jenis akun
 | Akun | Lingkup | Login |
 |---|---|---|
-| Pengelola Platform | Seluruh platform: menyetujui/menonaktifkan sekolah | `/platform/login` — username + password |
+| Pengelola Platform | Seluruh platform | `/platform/login` — username + password |
 | Pengguna Sekolah | Satu sekolah | `/login` — **NPSN + username + password** |
 
-Username unik **per sekolah** (setiap sekolah boleh punya `admin`).
+### 4.2 Peran sekolah & padanan jabatan BMD
 
-### 3.2 Peran sekolah
+Jabatan BMD tampil di blok tanda tangan dokumen; sebutannya bisa disesuaikan per sekolah (Pemda berbeda-beda menyebutnya).
 
-Satu pengguna dapat memiliki beberapa peran (tabel `user_roles`). Sekolah dapat menonaktifkan peran yang tidak dipakai (mis. SD tanpa Verifikator → persetujuan 1 tingkat).
-
-| Peran | Untuk | Padanan PRD |
+| Peran sistem | Jabatan BMD (default) | Tugas |
 |---|---|---|
-| **Admin Sekolah** | Pengaturan sekolah, pengguna, data dasar | — |
-| **Kepala Sekolah** | Persetujuan akhir, semua laporan, dashboard | Kepala Sekolah / Manajemen |
-| **Verifikator** | Verifikasi usulan & anggaran (tingkat 1) | Wakasek Sarpras |
-| **Petugas Barang** | Penerimaan, pengeluaran, mutasi, peminjaman, opname, cetak QR — dapat dibatasi ke gudang tertentu | Petugas Gudang / Toolman |
-| **Pengusul** | Mengajukan usulan kebutuhan & permintaan barang untuk unitnya | Guru / Kaprog |
-| **Peminjam** | Mengajukan peminjaman alat sendiri (hanya jika akun siswa/guru-peminjam diaktifkan) | Siswa |
+| **Admin Sekolah** | — | Pengaturan sekolah, pengguna, data dasar |
+| **Kepala Sekolah** | Kuasa Pengguna Barang | Persetujuan akhir, mengetahui/menandatangani dokumen, laporan |
+| **Verifikator** | (Wakasek Sarpras/Bendahara) | Verifikasi usulan & anggaran (tingkat 1) |
+| **Petugas Barang** | Pengurus Barang Pembantu | Penerimaan, penyaluran, mutasi, peminjaman, opname, KIR, label — dapat dibatasi ke gudang tertentu |
+| **Pengusul** | Pihak yang membutuhkan | Usulan kebutuhan & **nota permintaan** barang untuk unitnya |
+| **Peminjam** | — | Mengajukan peminjaman sendiri (bila akun siswa/guru-peminjam diaktifkan) |
 
-### 3.3 Matriks hak akses (ringkas)
+Pihak di luar sekolah yang hanya muncul di dokumen (tidak login): **Pengguna Barang** (Kepala Dinas Pendidikan) dan **Pengelola Barang** (Sekda/BPKAD) — nama/NIP diisi di profil bila diperlukan pada dokumen tertentu.
+
+### 4.3 Matriks hak akses (ringkas)
 
 | Kemampuan | Admin | Kepsek | Verifikator | Petugas | Pengusul | Peminjam |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | Pengaturan sekolah, pengguna, data dasar | ✔ | lihat | | | | |
 | Katalog barang & gudang | ✔ | lihat | lihat | ✔ | lihat | |
-| Buat/ajukan usulan | | | | | ✔ (unitnya) | |
-| Verifikasi usulan (tingkat 1) | | | ✔ | | | |
-| Setujui usulan (akhir) | | ✔ | | | | |
+| Usulan kebutuhan | | setujui | verifikasi | | ajukan | |
 | Pengadaan & penerimaan | | lihat | lihat | ✔ | | |
-| Pengeluaran & mutasi | | lihat | lihat | ✔ (gudangnya) | minta | |
+| Nota/surat permintaan & penyaluran | | setujui SPPB | lihat | ✔ | ajukan nota | |
 | Peminjaman | | lihat | lihat | ✔ | ajukan | ajukan (bila aktif) |
 | Stock opname | | setujui | lihat | ✔ | | |
-| Penghapusan barang | | setujui | verifikasi | usulkan | | |
+| Usulan penghapusan | | setujui & kirim | verifikasi | siapkan | | |
 | Pemeliharaan aset | | lihat | lihat | ✔ | | |
-| Laporan & cetak kartu | ✔ | ✔ | ✔ | ✔ | unitnya | |
+| Laporan & cetak | ✔ | ✔ | ✔ | ✔ | unitnya | |
 | Log aktivitas | ✔ | ✔ | | | | |
 
-Hak akses diperiksa di server (server action/route), bukan hanya disembunyikan di UI.
+---
+
+## 5. Registrasi & Setup Sekolah
+
+```
+/daftar  →  PENDING  →  Pengelola Platform setujui  →  ACTIVE  →  Wizard setup  →  siap dipakai
+                       ↘ tolak (REJECTED) / nonaktifkan kapan pun (SUSPENDED)
+```
+
+**Pernyataan cakupan** (beranda, form daftar, halaman login):
+> *Inventaris diperuntukkan bagi **sekolah negeri milik Pemerintah Daerah** (SD/SMP Negeri, SMA/SMK/SLB Negeri) yang barangnya merupakan Barang Milik Daerah. Belum melayani madrasah dan sekolah swasta.*
+
+Form pendaftaran wajib mencentang pernyataan tersebut.
+
+**Form pendaftaran:** NPSN, nama sekolah & singkat, **jenjang** (SD, SMP, SMA, SMK, SLB — semua negeri), provinsi & kab/kota (dari kode wilayah Kemendagri), alamat, penanggung jawab + HP/WA + email, akun admin pertama. Status kepemilikan BMD diturunkan otomatis: SD/SMP → **kab/kota (12)**, SMA/SMK/SLB → **provinsi (11)**.
+
+**Panel pengelola platform:** daftar per status, tautan cek NPSN ke `referensi.data.kemdikbud.go.id` (memastikan status **negeri**), setujui/tolak/nonaktifkan dengan catatan.
+
+**Wizard setup (sekali, bisa diubah kapan pun di Pengaturan):**
+1. **Profil & kop surat:** logo, alamat, nama & NIP Kepala Sekolah (Kuasa Pengguna Barang) dan Pengurus Barang Pembantu; opsional Kepala Dinas (Pengguna Barang).
+2. **Kode BMD dari Pemda:** kode pengguna barang (Dinas Pendidikan, 6 digit), **kode kuasa pengguna barang (sekolah, 5 digit)**, kode sub kuasa (opsional), dan **batas nilai kapitalisasi** per golongan sesuai Perkada (menentukan intrakomptabel/ekstrakomptabel). Bila belum tahu, boleh diisi belakangan — label register ditandai "sementara".
+3. **Struktur:** unit (kelas/mapel/program keahlian/bidang), gedung & ruangan (penanggung jawab ruangan untuk KIR), gudang.
+4. **Alur kerja:** persetujuan 1/2 tingkat, akun siswa, mode penyaluran persediaan (§7.4), batas hari peminjaman.
+5. **Pengguna & peran.**
+6. **Saldo awal:** impor Excel persediaan (NUSP, stok per gudang, harga) dan aset tetap (per unit, termasuk **nomor register lama dari Dinas/BPKAD**). Diposting sebagai dokumen *Saldo Awal*.
 
 ---
 
-## 4. Alur Registrasi & Setup Sekolah
+## 6. Barang, Kode & Stok
+
+### 6.1 Kategori = kode BMD
+
+- Pemilih kategori berupa pencarian atas 12.709 kode yang bisa dipilih (tingkat 6–7) dengan jalur induknya, mis. *Peralatan dan Mesin › Alat Rumah Tangga › Alat Kantor › Alat Kantor Lainnya › LCD Projector/Infocus* (`1.3.2.05.01.05.043`).
+- **Golongan** menentukan jenis catatan: `PERSEDIAAN` (1.1.7) → barang habis pakai; `A`–`F` (KIB) dan `ATB` → aset tetap per unit.
+- **Kode lokal Pemda:** untuk barang yang tidak ada di tingkat 7 (daftar regulasi sengaja terbuka, "Dst…"), Pemda/sekolah dapat menambah kode di bawah sub rincian objek yang sesuai, ditandai "lokal" + nomor keputusan bila ada.
+- **Daftar favorit per jenjang:** saat setup, sekolah mendapat daftar pendek kode yang lazim (ATK, kertas, bahan komputer, alat kebersihan, alat listrik, perlengkapan olahraga, LCD projector, komputer/laptop, meja-kursi, papan tulis, alat laboratorium, buku perpustakaan, dst.) agar tidak perlu mencari dari 12 ribu kode.
+
+### 6.2 Barang persediaan & NUSP
+
+- Setiap item persediaan = **kode barang persediaan** (tingkat 7, mis. `1.1.7.01.03.02.001` Kertas HVS) + **nomor urut spesifikasi** → **NUSP**, mis. `1.1.7.01.03.02.001.0003` = "Kertas HVS A4 70 gram, rim".
+- Satuan mengikuti "satuan yang lazim" (Permendagri 47/2021).
+- Label QR item persediaan hanya untuk kemudahan operasional (rak/gudang), **bukan** label register (persediaan dikecualikan dari label register — Permendagri 108/2016).
+
+### 6.3 Buku besar persediaan
 
 ```
-/daftar  →  status PENDING  →  Pengelola Platform setujui  →  ACTIVE  →  Wizard setup  →  siap dipakai
-                              ↘ tolak (REJECTED) / nonaktifkan kapan pun (SUSPENDED)
-```
-
-**Form pendaftaran:** NPSN (8 karakter), nama sekolah & nama singkat, jenjang, status (negeri/swasta), alamat, kab/kota, provinsi, penanggung jawab + HP/WA + email, akun admin pertama (nama, username, password ≥ 8). Honeypot anti-bot + rate limit Nginx.
-
-**Panel pengelola platform:** daftar sekolah per status, tautan cek NPSN ke `referensi.data.kemdikbud.go.id`, setujui/tolak/nonaktifkan dengan catatan. Sekolah nonaktif langsung terkunci walau sesinya masih berlaku (status dicek ulang setiap request).
-
-**Wizard setup (sekali, setelah disetujui)** — bisa dilewati & diubah kapan pun di Pengaturan:
-1. **Profil & kop surat:** logo, alamat lengkap, nama & NIP Kepala Sekolah dan Pengurus Barang (dipakai di tanda tangan semua dokumen cetak).
-2. **Template jenjang:** memilih template data dasar (§5.2) — terisi otomatis, bisa disunting.
-3. **Struktur:** unit (jurusan/bidang/kelas), gedung & ruangan, gudang.
-4. **Alur kerja:** persetujuan 1/2 tingkat, akun siswa aktif/tidak, batas hari peminjaman default, prefiks kode barang.
-5. **Pengguna:** tambah pengguna & peran (atau impor Excel).
-6. **Saldo awal:** impor Excel barang habis pakai (stok awal per gudang + harga) dan aset tetap (per unit). Diposting sebagai dokumen *Saldo Awal*.
-
----
-
-## 5. Data Dasar
-
-### 5.1 Entitas
-
-| Entitas | Isi | Catatan |
-|---|---|---|
-| **Unit** | Jurusan / laboratorium / bidang / kelas | Label jenis unit bisa disesuaikan (mis. SD: "Kelas", SMK: "Program Keahlian") |
-| **Gedung & Ruangan** | Lokasi fisik aset | Dasar KIR; ruangan opsional terhubung ke unit |
-| **Gudang** | Tempat penyimpanan barang habis pakai | Minimal 1 (Gudang Utama); boleh terhubung ke unit (gudang lab) dan dibatasi ke petugas tertentu |
-| **Kategori** | Pohon 2 tingkat; tipe *Aset* atau *Habis Pakai*; golongan KIB (B/C/E…) & prefiks kode BMD opsional | |
-| **Satuan** | pcs, unit, set, rim, box, liter, meter, kg, … | |
-| **Sumber Dana** | BOS Reguler, BOS Kinerja, BOSDA/BOP, Komite, Yayasan, Hibah, Lainnya | Dipakai di usulan, pengadaan, penerimaan, laporan |
-| **Penyedia** | Toko/vendor | Nama, alamat, NPWP opsional |
-| **Pagu Anggaran** | Batas anggaran per unit × sumber dana × tahun | Opsional; dipakai Verifikator saat menilai usulan |
-| **Tahun Anggaran & Periode** | Default Januari–Desember; periode bulanan bisa *ditutup* (§6.6) | |
-
-### 5.2 Template per jenjang
-
-Disediakan agar sekolah tidak mulai dari nol. Contoh isi:
-
-| Template | Unit | Kategori contoh |
-|---|---|---|
-| SD/MI | Kelas 1–6, Perpustakaan, UKS | ATK, Alat Kebersihan, Alat Peraga, Buku, Mebeler, Elektronik |
-| SMP/MTs, SMA/MA | Mapel/Lab IPA, Lab Komputer, Perpustakaan, TU | + Alat Lab IPA, Bahan Kimia, Alat Olahraga |
-| SMK | Per program keahlian (diisi sekolah) + Bengkel/Lab | + Mesin & Peralatan Bengkel, Bahan Praktik per jurusan, Alat Ukur, Kit Robotik |
-| SLB | Kelas/ketunaan, Ruang Terapi | + Alat Bantu Khusus |
-
----
-
-## 6. Barang, Stok & Mesin Posting
-
-### 6.1 Dua jenis barang
-
-| | Barang Habis Pakai | Aset Tetap |
-|---|---|---|
-| Dicatat sebagai | **Item katalog** + saldo per gudang | **Item katalog** + **unit aset** satu per satu |
-| Kode / QR | Kode item (QR untuk ambil cepat saat pengeluaran) | Kode unit aset (label QR ditempel di barang) |
-| Bisa dipinjam | Tidak | Ya |
-| Nilai | FIFO per lot penerimaan | Harga perolehan per unit |
-| Laporan utama | Kartu Stok, Mutasi Persediaan | KIR, KIB, Kartu Peminjaman |
-
-### 6.2 Kode barang & QR
-
-- **Kode item:** `{PREFIKS}-{KODEKATEGORI}-{URUT}` — contoh `ATK-0012`.
-- **Kode unit aset:** `{PREFIKS-SEKOLAH}/{KODEKATEGORI}/{TAHUN}/{URUT}` — contoh `INV/KOM/2026/0007`; nomor urut per sekolah per kategori per tahun, dibuat atomik (tabel `doc_counters` + `FOR UPDATE`).
-- **Kode BMD:** kolom opsional di item & unit aset untuk laporan KIB (sekolah negeri).
-- **Isi QR:** URL `https://inventaris.ankdev.id/q/{token}` dengan *token acak* (bukan kode berurutan) supaya tidak bisa ditebak/di-scan massal. Bila yang memindai sudah login sebagai pengguna sekolah itu → membuka halaman aset/aksi cepat; bila tidak → info minimal (nama barang, sekolah, "milik inventaris sekolah").
-- **Cetak label:** lembar label A4 (beberapa ukuran umum) berisi QR + kode + nama + sekolah.
-
-### 6.3 Buku besar stok
-
-```
-stock_lots       : satu baris per penerimaan barang habis pakai per gudang
-                   (qty_masuk, qty_sisa, harga_satuan, tanggal) — dasar FIFO
-stock_balances   : saldo terkini per item × gudang (qty, nilai) — dikunci saat posting
+stock_lots       : satu baris per penerimaan per gudang (qty_masuk, qty_sisa, harga_satuan, tanggal) — dasar FIFO
+stock_balances   : saldo terkini per NUSP × gudang (qty, nilai) — dikunci saat posting
 stock_movements  : buku besar, TIDAK BISA diubah/dihapus (dijaga trigger DB)
-                   jenis: SALDO_AWAL, MASUK, KELUAR, MUTASI_KELUAR, MUTASI_MASUK,
-                          PENYESUAIAN_TAMBAH, PENYESUAIAN_KURANG, PEMBALIK
-                   simpan: qty, harga satuan, nilai, saldo qty & nilai SESUDAH baris ini,
-                           referensi dokumen & baris, lot, tanggal transaksi, pembuat
+                   jenis: SALDO_AWAL, PENERIMAAN, PENYALURAN, MUTASI_KELUAR, MUTASI_MASUK,
+                          PENYESUAIAN_TAMBAH, PENYESUAIAN_KURANG (opname),
+                          RUSAK_USANG (keluar ke daftar persediaan rusak/usang), PEMBALIK
+                   simpan: qty, harga satuan, nilai, saldo qty & nilai sesudah baris ini, dokumen sumber, lot
 ```
 
-**Kartu Stok** (per item per gudang, rentang tanggal) = saldo awal periode + baris `stock_movements` berurutan, dengan kolom *Masuk | Keluar | Saldo* (qty & rupiah). Karena saldo sesudah tiap baris disimpan saat posting, kartu stok selalu konsisten dengan saldo saat itu.
+**Algoritma posting** (satu transaksi): kunci penomoran dokumen → urutkan baris (NUSP, gudang) → `SELECT … FOR UPDATE` saldo → penerimaan membuat lot; pengeluaran mengambil lot FIFO (`FOR UPDATE`, urut tanggal) dan gagal bila stok kurang → tulis movement + saldo sesudahnya → update saldo → `COMMIT` → `NOTIFY` dashboard. Pengaman: `CHECK (qty_sisa >= 0)`, `CHECK (qty >= 0)`, trigger anti ubah/hapus buku besar; diuji dengan tes FIFO & tes konkurensi.
 
-### 6.4 Algoritma posting (satu transaksi database)
+### 6.4 Tanggal transaksi & tutup buku
+Tanggal mengikuti dokumen sumber (Pasal 6 ayat 2); boleh mundur, tetapi tidak di periode yang sudah ditutup dan tidak lebih awal dari mutasi terakhir NUSP×gudang yang sama. Periode (bulan/semester) dapat ditutup setelah laporan dicetak.
 
+### 6.5 Aset tetap per unit & kode register
+
+**Kode register** (Permendagri 108/2016) dicetak dua baris pada label:
 ```
-BEGIN
-  kunci nomor dokumen           (doc_counters FOR UPDATE)
-  urutkan baris dokumen menurut (item_id, gudang_id)       -- cegah deadlock
-  untuk tiap baris:
-    SELECT stock_balances ... FOR UPDATE                    -- kunci saldo item×gudang
-    jika MASUK      : buat stock_lot baru (qty_sisa = qty)
-    jika KELUAR     : ambil lot qty_sisa > 0 urut (tanggal, id) FOR UPDATE,
-                      kurangi FIFO; jika total tidak cukup → BATAL (stok tidak cukup)
-                      nilai keluar = Σ(qty diambil × harga lot)   -- bisa >1 lot per baris
-    tulis stock_movements (dengan saldo sesudah)
-    update stock_balances
-  tandai dokumen POSTED, catat log aktivitas
-COMMIT
-NOTIFY school_<id>   -- dashboard realtime
+12 . 01 . 72 . 04 . 010101 . 00103 . 00000 . 2026     ← kepemilikan . intra/ekstra . prov . kab/kota . pengguna . kuasa pengguna . sub kuasa . tahun perolehan
+      1 . 3 . 2 . 05 . 01 . 05 . 043 . 000070          ← kode barang . nomor urut pendaftaran
 ```
+- Kepemilikan 11 (provinsi) / 12 (kab/kota); kode kab/kota `00` untuk barang provinsi.
+- Intrakomptabel `01` bila harga ≥ batas kapitalisasi Perkada, ekstrakomptabel `02` bila di bawahnya (tetap dicatat).
+- **Nomor urut pendaftaran** 6 digit per kode barang; sistem mengusulkan nomor berikutnya, tetapi **dapat diisi/diimpor** sesuai register yang sudah diberikan Dinas/BPKAD. Unik per sekolah × kode barang.
+- QR label berisi URL token acak (§6.6) — tidak menggantikan teks kode register yang wajib tercetak.
 
-Pengaman tambahan: `CHECK (qty_sisa >= 0)`, `CHECK (qty >= 0)` di saldo, trigger yang menolak `UPDATE/DELETE` pada `stock_movements`. Mesin posting diuji dengan tes unit FIFO **dan** tes konkurensi (banyak pengeluaran paralel dari stok yang sama tidak boleh menghasilkan stok negatif).
+Data unit aset: kode barang, nomor register, nama/spesifikasi, merk/tipe, ukuran/CC, bahan, nomor pabrik/rangka/mesin/polisi/BPKB (bila ada), tahun & harga perolehan, asal-usul (pembelian/hibah/…), sumber dana, ruangan, unit, **kondisi** (`BAIK`, `RUSAK_RINGAN`, `RUSAK_BERAT`), **status** (`DIGUNAKAN`, `DIPINJAM`, `DALAM_PEMELIHARAAN`, `DIUSULKAN_HAPUS`, `DIHAPUS`, `HILANG`), riwayat lokasi & kondisi.
 
-> PRD menyarankan *database trigger* untuk memperbarui stok. Rancangan ini memilih **layanan posting di aplikasi** (lebih mudah diuji & dibaca) dengan **constraint + trigger penjaga** di database. Hasil yang dijamin sama: stok tidak pernah selisih.
-
-### 6.5 Aset per unit
-
-- Penerimaan aset qty N → membuat N unit aset (kode & QR masing-masing), harga perolehan, sumber dana, tanggal perolehan, ruangan awal.
-- **Kondisi:** `BAIK`, `RUSAK_RINGAN`, `RUSAK_BERAT`.
-- **Status:** `TERSEDIA`, `DIPINJAM`, `DALAM_PERBAIKAN`, `DIHAPUS`, `HILANG`.
-- Riwayat lokasi (`asset_location_history`) & riwayat kondisi tersimpan setiap perpindahan ruangan/unit, peminjaman, pemeliharaan, opname.
-
-### 6.6 Tanggal transaksi & tutup buku
-
-- Tanggal transaksi boleh diisi mundur (input susulan), **tetapi** tidak boleh berada di periode yang sudah ditutup dan tidak boleh lebih awal dari mutasi terakhir item×gudang yang sama (menjaga urutan FIFO & kartu stok).
-- Kepala Sekolah/Admin dapat **menutup periode** (mis. per bulan/semester) setelah laporan dicetak; dokumen di periode tertutup tidak bisa diposting/dibatalkan.
+### 6.6 QR
+URL `https://inventaris.ankdev.id/q/{token}` (token acak). Pengguna sekolah yang login → halaman aset + aksi cepat; publik → info minimal (nama barang, sekolah, kode register).
 
 ---
 
 ## 7. Modul & Alur Kerja
 
-### 7.1 Usulan Kebutuhan (Proposal)
-
-```
-DRAF → DIAJUKAN → [DIVERIFIKASI] → DISETUJUI → DIPROSES (pengadaan) → SELESAI
-          ↘ DIKEMBALIKAN (revisi, kembali ke DRAF)   ↘ DITOLAK
-   [ ] = hanya bila persetujuan 2 tingkat
-```
-
-- Dibuat Pengusul untuk unitnya; baris: item katalog **atau** barang baru (teks bebas + spesifikasi), qty, satuan, perkiraan harga, alasan, prioritas (tinggi/sedang/rendah), sumber dana & tahun anggaran yang diusulkan.
-- Verifikator melihat sisa **pagu** unit × sumber dana dan dapat menyetujui **sebagian** (qty disetujui per baris).
-- Setiap keputusan tercatat (siapa, kapan, catatan). Pengusul mendapat notifikasi.
+### 7.1 Usulan Kebutuhan
+`DRAF → DIAJUKAN → [DIVERIFIKASI] → DISETUJUI → DIPROSES → SELESAI` (atau `DIKEMBALIKAN` / `DITOLAK`). Baris: kode barang/item atau barang baru (teks + spesifikasi), qty, satuan, perkiraan harga, alasan, prioritas, **sumber dana & komponen BOSP**. Verifikator melihat sisa pagu unit × sumber dana dan dapat menyetujui sebagian.
 
 ### 7.2 Pengadaan
+Dari usulan yang disetujui atau langsung. Penyedia, nomor & tanggal nota/kuitansi, sumber dana + komponen BOSP, baris barang, pajak (dicatat), total, lampiran nota. `DRAF → DIPESAN → DITERIMA_SEBAGIAN → DITERIMA`.
 
-- Dibuat Petugas dari baris usulan yang disetujui (boleh menggabungkan beberapa usulan) atau langsung (pembelian non-usulan, hibah).
-- Isi: penyedia, nomor & tanggal nota, sumber dana, baris (item, qty, harga satuan), pajak (dicatat saja), total, lampiran nota (foto/PDF).
-- Status: `DRAF → DIPESAN → DITERIMA_SEBAGIAN → DITERIMA`.
+### 7.3 Penerimaan
+Asal: pengadaan, hibah/sumbangan, saldo awal, hasil inventarisasi, lainnya (cara perolehan Pasal 7 Permendagri 47/2021). Persediaan → gudang (lot FIFO, tercatat di **Buku Penerimaan Persediaan**). Aset → ruangan (unit aset + kode register + label). Cetak **Berita Acara Serah Terima/Penerimaan**.
 
-### 7.3 Penerimaan → **Kartu Penerimaan**
-
-- Dari pengadaan (sisa qty) atau langsung (hibah/sumbangan/saldo awal).
-- Barang habis pakai → ke gudang tujuan (membuat lot FIFO). Aset → ke ruangan tujuan (membuat unit aset + QR).
-- Posting → nomor `KP/2026/0001`, cetak **Kartu Penerimaan** & **Berita Acara Penerimaan/Serah Terima**, cetak label QR.
-
-### 7.4 Pengeluaran → **Kartu Pengeluaran**
-
-- Opsional didahului **Permintaan Barang** dari Pengusul (unit, item, qty) → diproses Petugas.
-- Petugas memilih/scan item, gudang asal, qty, unit/penerima. Nilai dihitung FIFO saat posting.
-- Posting → nomor `KK/2026/0001`, cetak **Kartu Pengeluaran** dengan tanda tangan penyerah & penerima.
+### 7.4 Penyaluran persediaan (pengeluaran)
+Mengikuti Permendagri 47/2021 Pasal 36–37, dengan dua mode (diatur per sekolah):
+- **Mode lengkap:** *Nota Permintaan* (Pengusul) → *Surat Permintaan Barang* (Petugas) → *Surat Perintah Penyaluran Barang* (Kepala Sekolah) → penyaluran + **BAST** → tercatat di **Buku Pengeluaran** & **Buku Penyaluran Persediaan**.
+- **Mode ringkas** (sekolah kecil): Nota Permintaan → disetujui & disalurkan Petugas → BAST. Dokumen yang dilewati tetap dapat dicetak otomatis dari data yang sama.
+Nilai keluar dihitung FIFO saat posting.
 
 ### 7.5 Mutasi
+Antar gudang (persediaan, lot pindah dengan harga aslinya); antar ruangan/unit (aset, riwayat lokasi; KIR otomatis diperbarui).
 
-- **Antar gudang** (habis pakai): `MUTASI_KELUAR` + `MUTASI_MASUK` dalam satu posting; lot berpindah dengan harga aslinya.
-- **Antar ruangan/unit** (aset): pindah lokasi per unit (scan QR), tercatat di riwayat lokasi; KIR otomatis mengikuti.
+### 7.6 Peminjaman (internal sekolah)
+Peminjaman alat oleh siswa/guru di dalam sekolah (bukan "pinjam pakai" BMD antar-instansi). `[DIAJUKAN → DISETUJUI] → DIPINJAM → DIKEMBALIKAN`, terlambat dihitung otomatis. Hanya unit berstatus `DIGUNAKAN`/tersedia; kondisi awal & akhir (+foto). Cetak **Kartu Peminjaman**.
 
-### 7.6 Peminjaman → **Kartu Peminjaman**
+### 7.7 Persediaan rusak/usang
+Petugas membuat **Berita Acara Perubahan Fisik** → item keluar dari stok (`RUSAK_USANG`) ke **Daftar Persediaan Rusak Berat/Usang** (Pasal 38); tindak lanjut pemusnahan/penghapusan mengikuti §7.9.
 
+### 7.8 Stock Opname / Inventarisasi
+- **Persediaan:** wajib **setiap semester** (Pasal 39) — sistem mengingatkan menjelang akhir semester. Gudang dibekukan selama sesi; snapshot vs hitung fisik; persetujuan Kepala Sekolah → penyesuaian; cetak **Berita Acara Inventarisasi Fisik Persediaan**.
+- **Aset:** per ruangan; mencocokkan KIR dengan fisik, kondisi (baik/rusak ringan/rusak berat), barang tidak ditemukan, barang belum tercatat. Hasil dikelompokkan seperti rekapitulasi hasil inventarisasi Permendagri 47/2021 (hilang, perubahan fisik, belum tercatat, tercatat ganda, dll.).
+
+### 7.9 Usulan Penghapusan
+Sesuai Permendagri 19/2016 jo. 7/2024 — **keputusan ada di kepala daerah**:
 ```
-[DIAJUKAN → DISETUJUI] → DIPINJAM → DIKEMBALIKAN (per unit)        TERLAMBAT = dihitung otomatis
-   [ ] = hanya bila peminjam mengajukan sendiri lewat akunnya
+DRAF → DIAJUKAN (Kepsek) → DIKIRIM KE DINAS/BPKAD → [SK TERBIT] → DIHAPUS
+                                                  ↘ DITOLAK
 ```
+- Alasan: rusak berat/usang, hilang karena kecurian, hilang tidak ditemukan, terbakar/susut/kedaluwarsa, keadaan kahar, tindak lanjut inventarisasi.
+- Data wajib per barang: tahun perolehan, kode barang, kode register, nama, jenis, identitas, kondisi, lokasi, nilai perolehan; lampiran foto; **surat keterangan kepolisian** bila kecurian.
+- Cetak **surat usulan & daftar barang usulan penghapusan**. Status aset menjadi `DIUSULKAN_HAPUS` (tidak bisa dipinjam/dipindah). Saat SK terbit, petugas mencatat **nomor & tanggal SK** + lampiran → aset `DIHAPUS` (persediaan: `PENYESUAIAN_KURANG`).
 
-- Peminjam: pengguna (siswa/guru) **atau** nama + kelas/NIS bebas (untuk sekolah tanpa akun siswa).
-- Petugas scan QR unit aset; hanya unit berstatus `TERSEDIA` (baris dikunci saat checkout). Isi tujuan, tanggal pinjam, **batas kembali**, kondisi awal (+ foto opsional).
-- Pengembalian per unit: kondisi akhir (+foto); bila rusak → kondisi aset diperbarui & dapat diteruskan ke pemeliharaan.
-- Nomor `PJ/2026/0001`, cetak **Kartu Peminjaman**. Notifikasi H-1 dan saat terlambat.
+### 7.10 Pemeliharaan
+Formulir pemeliharaan → **Kartu Pemeliharaan** per unit aset (Pasal 40): tanggal, jenis (rutin/perbaikan), pelaksana, biaya, sumber dana & komponen BOSP (mis. "Pemeliharaan sarana dan prasarana sekolah"), uraian, kondisi sebelum/sesudah. Pemeliharaan yang menambah umur/kapasitas ditandai terpisah (bukan pemeliharaan rutin).
 
-### 7.7 Stock Opname
+### 7.11 KIR
+Dibentuk otomatis dari data aset per ruangan; dicetak **rangkap 2** (tempel & arsip); sistem menandai KIR "perlu diperbarui" setiap semester dan setiap ada perpindahan barang, penambahan barang, atau pergantian penanggung jawab ruangan (Permendagri 47/2021 Lampiran §K).
 
-- Sesi per gudang (habis pakai) atau per ruangan (aset). Saat sesi dibuka, sistem menyimpan *snapshot* jumlah tercatat, dan **gudang/ruangan itu dibekukan** dari posting lain sampai sesi selesai (menjamin selisih akurat).
-- Petugas menghitung/scan; sistem menghitung selisih (qty & rupiah).
-- Kepala Sekolah menyetujui → posting `PENYESUAIAN_TAMBAH/KURANG` (habis pakai) dan status `HILANG`/temuan (aset). Cetak **Berita Acara Stock Opname**.
+### 7.12 Notifikasi
+Usulan menunggu, nota permintaan masuk, SPPB menunggu, peminjaman jatuh tempo/terlambat, stok di bawah minimum, opname semester, KIR perlu diperbarui, usulan penghapusan menunggu. Lonceng di aplikasi (realtime) + email.
 
-### 7.8 Penghapusan Barang
+### 7.13 Log aktivitas
+Siapa, kapan, aksi, entitas, sebelum/sesudah, IP — tidak bisa diubah.
 
-- Petugas mengusulkan penghapusan unit aset (rusak berat/hilang/usang) atau barang habis pakai (kedaluwarsa/rusak) dengan alasan & foto.
-- Alur persetujuan mengikuti pengaturan 1/2 tingkat → posting: aset `DIHAPUS`, habis pakai `PENYESUAIAN_KURANG`.
-- Cetak **Berita Acara Penghapusan**.
+---
 
-### 7.9 Pemeliharaan Aset
+## 8. Dokumen Cetak (format standar)
 
-- Catatan per unit: tanggal, jenis (perawatan rutin/perbaikan), pelaksana/penyedia, biaya, sumber dana, uraian, kondisi sebelum/sesudah, lampiran.
-- Selama dikerjakan status aset `DALAM_PERBAIKAN` (tidak bisa dipinjam).
+Semua dokumen: kop sekolah (logo, nama Pemda/Dinas, nama sekolah, alamat), identitas BMD (kode lokasi), nomor & tanggal, blok tanda tangan sesuai jabatan BMD. Dibuat dari **template HTML** yang sama untuk layar dan cetak (CSS `@page`, A4/F4), diunduh sebagai PDF lewat dialog cetak browser; laporan tabel juga Excel.
 
-### 7.10 Notifikasi
+| # | Dokumen | Rujukan | Isi pokok |
+|---|---|---|---|
+| 1 | **Kartu Penerimaan** (Buku Penerimaan Persediaan + BA Penerimaan) | Format II.I.3 | Tanggal, asal/penyedia, dokumen sumber (no/tgl), NUSP & nama barang, qty, satuan, harga, jumlah, sumber dana, keterangan |
+| 2 | **Kartu Pengeluaran** (Buku Pengeluaran/Penyaluran + BAST) | Format II.I.4, II.I.9, II.I.10 | Tanggal, no SPPB/BAST, unit penerima, NUSP & nama, qty, harga FIFO, jumlah |
+| 3 | **Kartu Barang Persediaan** (Kartu Stok) | Format II.I.5 | Per NUSP × gudang: tanggal, no dokumen, uraian, masuk/keluar/saldo (qty, harga, jumlah) |
+| 4 | **Kartu Peminjaman** | Internal sekolah | Peminjam, kode register & nama barang, tgl pinjam/batas/kembali, kondisi awal/akhir, tanda tangan |
+| 5 | Nota Permintaan · Surat Permintaan Barang · Surat Perintah Penyaluran Barang | Format II.I.6–8 | Sesuai alur §7.4 |
+| 6 | **KIR** | Format II.K.2 | Ruangan, penanggung jawab; no, kode barang, nama/merk/tipe, no register, tahun, jumlah, harga, kondisi, keterangan |
+| 7 | **KIB A–F** | Pembukuan BMD | KIB B: kode barang, nama, no register, merk/tipe, ukuran/CC, bahan, tahun pembelian, nomor pabrik/rangka/mesin/polisi/BPKB, asal-usul, harga, keterangan (16 kolom); KIB lain menyesuaikan golongannya |
+| 8 | **Laporan Mutasi Persediaan** | Pelaporan semesteran | Per NUSP: saldo awal, masuk, keluar, saldo akhir (qty & Rp), per gudang & sumber dana |
+| 9 | **Daftar Persediaan Rusak Berat/Usang** + BA Perubahan Fisik | Format II.I.11 | |
+| 10 | **Kartu Pemeliharaan** | Format II.J.2 | Riwayat pemeliharaan per unit aset |
+| 11 | **Berita Acara Inventarisasi Fisik / Stock Opname** + lembar kerja | Pasal 39; Lampiran II | Tercatat vs fisik, selisih, kondisi |
+| 12 | **Usulan Penghapusan** (surat + daftar barang) | Permendagri 19/2016 jo. 7/2024 Pasal 452 | Data wajib §7.9 |
+| 13 | **Label kode register** (QR + 2 baris kode) | Permendagri 108/2016 | Lembar label A4 beberapa ukuran |
 
-| Kejadian | Penerima |
+Contoh setiap format (dengan data contoh) dibuat lebih dulu dan **disetujui sebelum modul terkait dibangun**.
+
+---
+
+## 9. Data Dasar
+
+| Entitas | Isi |
 |---|---|
-| Usulan diajukan / diverifikasi | Verifikator / Kepala Sekolah |
-| Usulan disetujui / ditolak / dikembalikan | Pengusul |
-| Permintaan barang masuk | Petugas gudang terkait |
-| Peminjaman diajukan / H-1 jatuh tempo / terlambat | Petugas / Peminjam |
-| Stok di bawah batas minimum | Petugas gudang terkait |
-| Penghapusan / opname menunggu persetujuan | Kepala Sekolah |
-
-Lonceng notifikasi di aplikasi (realtime) + email (bila pengguna punya email & SMTP platform diisi). Pengingat jatuh tempo dijalankan timer harian.
-
-### 7.11 Log Aktivitas
-
-Setiap perubahan data penting & setiap posting dicatat: siapa, kapan, aksi, entitas, nilai sebelum/sesudah, IP. Dapat dicari & difilter oleh Admin/Kepala Sekolah. Tidak bisa diubah.
+| Unit | Kelas / mata pelajaran / program keahlian / bidang (label bisa disesuaikan) |
+| Gedung & Ruangan | Lokasi aset; **penanggung jawab ruangan** (untuk KIR) |
+| Gudang | Tempat persediaan; boleh terhubung ke unit & dibatasi ke petugas tertentu |
+| Kode barang | Dataset Permendagri 108/2016 (platform, read-only) + kode lokal Pemda/sekolah |
+| Item persediaan | NUSP, nama spesifikasi, satuan, stok minimum |
+| Satuan | pcs, unit, set, rim, box, pak, lembar, buah, liter, meter, kg, … |
+| Sumber dana | BOS Reguler, BOS Kinerja, BOS Afirmasi (+ komponennya), APBD/BOSDA, DAK, Hibah, Lainnya |
+| Penyedia | Nama, alamat, NPWP opsional |
+| Pagu anggaran | Unit × sumber dana × tahun (opsional) |
+| Periode | Tahun anggaran Jan–Des; periode bulan/semester bisa ditutup |
 
 ---
 
-## 8. Laporan & Dokumen Cetak
+## 10. Arsitektur Teknis
 
-Semua dokumen cetak memakai kop sekolah (logo, nama, alamat) dan blok tanda tangan dari profil sekolah. Format PDF; laporan tabel juga Excel.
-
-| Dokumen | Isi utama | Filter |
-|---|---|---|
-| **Kartu Penerimaan** | No/tgl, penyedia/asal, sumber dana, baris barang, qty, harga, total, penerima | per dokumen |
-| **Kartu Pengeluaran** | No/tgl, gudang asal, unit/penerima, barang, qty, nilai FIFO | per dokumen |
-| **Kartu Peminjaman** | Peminjam, unit aset (kode), tgl pinjam/batas/kembali, kondisi awal/akhir | per dokumen / per peminjam |
-| **Kartu Stok** | Tanggal, no dokumen, uraian, masuk, keluar, saldo (qty & Rp) | item × gudang × rentang tanggal |
-| **KIR** | Daftar aset per ruangan: kode, nama, merk/tipe, tahun, jumlah, kondisi | per ruangan (untuk ditempel) |
-| **KIB** | Buku inventaris aset tetap per golongan (B Peralatan & Mesin, E Aset Tetap Lainnya, dst.): kode BMD, register, tahun & harga perolehan, sumber dana, kondisi | golongan × tahun |
-| **Laporan Mutasi Persediaan** | Per item: saldo awal, masuk, keluar, saldo akhir (qty & Rp) | periode × gudang × sumber dana |
-| **Berita Acara** | Penerimaan/Serah Terima, Penghapusan, Stock Opname | per dokumen |
-| **Label QR** | QR + kode + nama + sekolah | pilihan unit aset/item |
-
----
-
-## 9. Arsitektur Teknis
-
-### 9.1 Komponen
-
+### 10.1 Komponen
 ```
 PWA / Browser ──HTTPS──▶ Nginx (TLS, rate limit) ──▶ Next.js 16 (systemd, 127.0.0.1:3030)
                                                        │  Server Components + Server Actions
-                                                       │  Route Handlers: /api/sse, /api/files, /q/[token], laporan
+                                                       │  Route Handlers: /api/sse, /api/files, /q/[token], /cetak/*
                                                        ▼
                                           PostgreSQL 16 (db `inventaris`, RLS)  ◀── LISTEN/NOTIFY ── SSE
-                                          Disk lokal /var/lib/inventaris/files (foto, nota, logo)
-Timer systemd: pengingat jatuh tempo & stok minimum (harian), backup DB + file (harian)
+                                          Disk lokal /var/lib/inventaris/files (foto, nota, lampiran, logo)
+Timer systemd: pengingat (jatuh tempo, stok minimum, opname semester, KIR), backup DB + file (harian)
 ```
 
-| Lapisan | Pilihan | Alasan |
+| Lapisan | Pilihan |
+|---|---|
+| Framework | Next.js 16 App Router, TypeScript strict |
+| Paket & skrip | Bun 1.4 (sama dengan SIGW) |
+| ORM & migrasi | Drizzle ORM + drizzle-kit (SQL eksplisit; RLS & trigger di migrasi) |
+| Auth | Auth.js v5 (Credentials NPSN + username), sesi JWT 12 jam, status sekolah dicek per request |
+| Validasi | Zod di setiap server action |
+| UI | Tailwind + komponen ala shadcn/ui; TanStack Table; latar off-white, teks slate, aksen emerald |
+| Dokumen cetak | Template HTML + CSS cetak (`@page`); PDF via dialog cetak browser; opsional render PDF di server dengan Chromium headless untuk cetak massal |
+| Excel | exceljs (impor saldo awal, ekspor laporan) |
+| QR | `qrcode` (buat), `BarcodeDetector`/`@zxing/browser` (scan) |
+| Realtime | SSE + Postgres `LISTEN/NOTIFY` |
+| Email | nodemailer via SMTP Google Workspace (`smtp.gmail.com:465`, App Password) dengan antrean `email_outbox` |
+| Tes | `bun test` (mesin stok, isolasi sekolah), Playwright (alur utama & tampilan cetak) |
+
+### 10.2 Isolasi multi-sekolah
+Helper `withSchool(session, fn)` (school_id dari sesi, status `ACTIVE`, transaksi) + **Row-Level Security** dengan `SET LOCAL app.school_id`. Role aplikasi tanpa `BYPASSRLS`; dataset kode BMD adalah tabel platform (baca saja).
+
+### 10.3 Keamanan
+bcrypt (cost 12), rate limit login/daftar, kunci sementara setelah gagal berulang; unggahan dicek isi, nama dibuat server, disajikan lewat route ber-otorisasi; token QR acak; header keamanan; `bun audit` sebelum rilis.
+
+### 10.4 Deploy (pola SIGW)
+`/var/www/inventaris` (repo + aplikasi, milik `ubuntu`; app berjalan sebagai user `inventaris`, read-only ke kode) · DB `inventaris` · file `/var/lib/inventaris/files` · backup harian 14 hari · `inventaris.service` + timer · Nginx + Let's Encrypt · `inventaris-update`.
+
+---
+
+## 11. Model Data (ringkas)
+
+Semua tabel sekolah memiliki `id`, `school_id`, `created_at`, `updated_at` dan dilindungi RLS.
+
+**Platform:** `schools` (npsn, nama, jenjang, provinsi, kab/kota, status kepemilikan, kode pengguna/kuasa/sub kuasa, status pendaftaran) · `platform_admins` · `bmd_codes` (13.780 kode: kode, tingkat, uraian, induk, golongan, bisa_dipilih) · `regions` (kode wilayah).
+**Sekolah:** `school_settings` (persetujuan, mode penyaluran, akun siswa, batas kapitalisasi per golongan, jabatan & penandatangan) · `users` · `user_roles` · `user_units` · `user_warehouses` · `local_bmd_codes` (kode tambahan Pemda/sekolah + dasar keputusan).
+**Data dasar:** `units`, `buildings`, `rooms` (+ penanggung jawab), `warehouses`, `uoms`, `funding_sources` (+ komponen), `vendors`, `budget_ceilings`, `fiscal_periods`.
+**Barang & stok:** `supply_items` (NUSP, kode barang, spesifikasi, satuan, stok minimum, token QR) · `assets` (kode barang, nomor register, intra/ekstra, atribut KIB, perolehan, sumber dana, ruangan, kondisi, status, token QR) · `asset_location_history` · `asset_condition_history` · `stock_lots` · `stock_balances` · `stock_movements`.
+**Dokumen** (kepala + baris, `nomor`, `status`, `tanggal`, dibuat/diposting oleh): `proposals`, `procurements`, `receipts`, `supply_requests` (nota permintaan), `distribution_orders` (surat permintaan & SPPB), `issues` (penyaluran/BAST), `transfers`, `asset_moves`, `loans`, `damage_reports` (BA perubahan fisik), `stock_opnames`, `asset_inventories`, `disposal_proposals` (+ SK), `maintenances`, `kir_snapshots` (KIR tercetak per semester).
+**Pendukung:** `doc_counters`, `attachments`, `notifications`, `email_outbox`, `activity_logs`.
+
+---
+
+## 12. Antarmuka
+Bersih & minimalis (off-white, slate, emerald), mobile-first untuk Petugas (scan → aksi cepat), navigasi per peran: Dashboard · Barang (Persediaan, Aset, KIR) · Transaksi (Penerimaan, Penyaluran, Mutasi, Peminjaman) · Usulan & Pengadaan · Audit (Opname/Inventarisasi, Rusak/Usang, Penghapusan, Pemeliharaan) · Laporan · Pengaturan. Mockup layar utama disetujui di awal Fase 0.
+
+---
+
+## 13. Tahapan Pengembangan
+
+| Fase | Isi | Selesai bila |
 |---|---|---|
-| Framework | Next.js 16 App Router, TypeScript strict | Sama dengan SIGW/e-vote; UI penuh untuk PWA & scanner |
-| Runtime & paket | Bun 1.4 (paket & skrip), Node untuk `next start` | Sama dengan SIGW (sudah terpasang) |
-| ORM & migrasi | Drizzle ORM + drizzle-kit | Migrasi SQL eksplisit, mudah dipakai bersama RLS & trigger |
-| Auth | Auth.js v5 (Credentials: NPSN + username), JWT sesi 12 jam | Pola e-vote/SIGW; status sekolah dicek ulang per request |
-| Validasi | Zod di setiap server action | |
-| UI | Tailwind CSS + komponen ala shadcn/ui; TanStack Table untuk tabel padat | Desain bersih: latar off-white, teks slate gelap, aksen emerald (sesuai PRD) |
-| QR | `qrcode` (buat) + `BarcodeDetector`/`@zxing/browser` (scan kamera) | Scan berjalan di Android/iOS modern |
-| PDF & Excel | pdfmake + exceljs | Sama dengan SIGW |
-| Gambar | sharp (kompres & ubah ukuran foto unggahan) | Hemat disk |
-| Realtime | Server-Sent Events + Postgres `LISTEN/NOTIFY` per kanal sekolah | Tanpa Redis/WebSocket server terpisah |
-| PWA | Web App Manifest + service worker (cache aset statis saja) | Bisa di-install; transaksi tetap online |
-| Email | SMTP (nodemailer) melalui antrean tabel `outbox` + timer | Gagal kirim tidak mengganggu transaksi |
-| Tes | `bun test` (unit & integrasi DB), Playwright (alur utama end-to-end) | Mesin stok & isolasi sekolah wajib teruji |
-
-### 9.2 Isolasi multi-sekolah (dua lapis)
-
-1. **Aplikasi:** semua akses data lewat helper `withSchool(session, fn)` yang mengambil `school_id` dari sesi (bukan dari input), memeriksa status sekolah `ACTIVE`, dan menjalankan `fn` dalam transaksi.
-2. **Database:** Row-Level Security pada setiap tabel ber-`school_id` dengan kebijakan `school_id = current_setting('app.school_id')`. `withSchool` mengisi `SET LOCAL app.school_id` di awal transaksi. Aplikasi terhubung sebagai role tanpa `BYPASSRLS`; hanya modul pengelola platform & migrasi yang memakai role khusus.
-
-### 9.3 Keamanan
-
-- Password bcrypt (cost 12); rate limit login/daftar di Nginx; kunci sementara setelah gagal login berulang.
-- File unggahan: dicek isi (magic bytes), ukuran maks, nama dibuat server, disimpan di luar folder publik, disajikan lewat route yang memeriksa hak akses.
-- Token QR acak (tidak berurutan); halaman publik QR hanya menampilkan info minimal.
-- Header keamanan (CSP, HSTS, X-Frame-Options); server action bergantung pada pemeriksaan Origin bawaan Next.js.
-- Audit `bun audit` sebelum setiap rilis; dependensi dikunci (`bun.lock`).
-
-### 9.4 Deploy (mengikuti pola SIGW di server ini)
-
-- Kode: `/var/www/inventaris` (repo git + aplikasi, milik `ubuntu`); aplikasi berjalan sebagai user `inventaris` (read-only terhadap kode).
-- Data: DB PostgreSQL `inventaris`; file `/var/lib/inventaris/files`; backup harian `pg_dump` + arsip file (14 hari).
-- systemd `inventaris.service` (127.0.0.1:3030, hardening), timer harian notifikasi & backup; Nginx + Let's Encrypt; perintah `inventaris-update`.
-- Repo GitHub `pindoyono/inventaris` (dibuat Anda) + deploy key.
+| **0 Fondasi** | Repo, skema + RLS, dataset kode BMD & wilayah, Auth NPSN, pendaftaran (pernyataan sekolah negeri) + panel pengelola, wizard setup + kode BMD Pemda, pengguna & peran, data dasar, log, deploy | Dua sekolah uji terisolasi total; sekolah pending/nonaktif terkunci |
+| **1 Inti Stok** (live) | Item persediaan (NUSP), penerimaan, penyaluran (mode ringkas & lengkap) + BAST, mutasi, Kartu Barang Persediaan FIFO, aset per unit + kode register + label, saldo awal, scan QR, tutup periode | Tes FIFO & konkurensi lulus; saldo = Σ buku besar; format 1–3, 5, 13 disetujui |
+| **2 Alur Kerja** | Usulan + pagu + sumber dana/komponen BOSP, pengadaan, peminjaman + Kartu Peminjaman, notifikasi + email | Format 4 disetujui |
+| **3 Audit & Laporan** | Opname semester & inventarisasi aset, persediaan rusak/usang, usulan penghapusan + SK, pemeliharaan, KIR, KIB A–F, laporan mutasi persediaan, dashboard realtime, ekspor Excel | Format 6–12 disetujui |
 
 ---
 
-## 10. Model Data (ringkas)
-
-Semua tabel di bawah (kecuali yang ditandai *platform*) memiliki `id`, `school_id`, `created_at`, `updated_at`, dan dilindungi RLS.
-
-**Platform & sekolah**
-`schools` *(platform)* — npsn ᵘ, nama, nama singkat, jenjang, status negeri/swasta, alamat, kab/kota, provinsi, kontak, logo, status (PENDING/ACTIVE/REJECTED/SUSPENDED), catatan status, disetujui_pada
-`school_settings` — persetujuan 1/2 tingkat, akun siswa aktif, label jenis unit, prefiks kode, hari pinjam default, nama & NIP kepsek/pengurus barang
-`platform_admins` *(platform)*
-
-**Pengguna**
-`users` — username ᵘ(per sekolah), nama, NIP/NIS, email, password_hash, aktif, harus_ganti_password
-`user_roles` — user, peran
-`user_units` · `user_warehouses` — lingkup pengusul & petugas
-
-**Data dasar**
-`units`, `buildings`, `rooms`, `warehouses`, `categories` (parent, tipe, golongan KIB, prefiks BMD), `uoms`, `funding_sources`, `vendors`, `budget_ceilings` (unit × sumber dana × tahun), `fiscal_periods` (status buka/tutup)
-
-**Barang & stok**
-`items` — kode ᵘ, nama, kategori, tipe (ASET/HABIS_PAKAI), satuan, merk/spesifikasi, kode BMD, stok minimum, foto, token QR
-`assets` — kode ᵘ, item, no seri, tgl & harga perolehan, sumber dana, asal (baris penerimaan), ruangan, unit, kondisi, status, kode BMD, no register, token QR
-`asset_location_history` · `asset_condition_history`
-`stock_lots` · `stock_balances` · `stock_movements` (§6.3)
-
-**Dokumen** (pola sama: kepala + baris, `nomor` ᵘ, `status`, `tanggal`, dibuat/diposting oleh)
-`proposals` + `proposal_items` + `proposal_approvals`
-`procurements` + `procurement_items` + lampiran
-`receipts` + `receipt_items` (Kartu Penerimaan)
-`item_requests` + `item_request_items` (permintaan barang)
-`issues` + `issue_items` (Kartu Pengeluaran)
-`transfers` + `transfer_items` (mutasi gudang) · `asset_moves`
-`loans` + `loan_items` (Kartu Peminjaman)
-`stock_opnames` + `stock_opname_items`
-`disposals` + `disposal_items` (penghapusan)
-`maintenances`
-
-**Pendukung**
-`doc_counters` (penomoran atomik per sekolah × jenis × tahun), `attachments`, `notifications`, `email_outbox`, `activity_logs` (tidak bisa diubah)
-
-ᵘ = unik (dalam lingkup sekolah kecuali disebut lain)
-
----
-
-## 11. Antarmuka
-
-- **Gaya:** bersih & minimalis — latar off-white, teks slate gelap, aksen emerald, kartu sudut membulat, tabel padat untuk Kartu Stok, tombol aksi utama menonjol (Scan QR, Terima Barang, Keluarkan Barang). Mode gelap otomatis.
-- **Navigasi per peran:** Petugas melihat *Gudang Hari Ini* (permintaan masuk, peminjaman jatuh tempo, stok menipis, tombol scan); Kepala Sekolah melihat *Menunggu Persetujuan* + ringkasan nilai persediaan & aset; Pengusul melihat usulan & permintaannya.
-- **Mobile-first untuk Petugas:** scan QR → aksi cepat (lihat/pinjamkan/kembalikan/pindahkan/catat kondisi).
-- **Halaman utama:** Dashboard · Barang (Katalog, Aset, Stok per Gudang) · Transaksi (Penerimaan, Pengeluaran, Mutasi, Peminjaman) · Usulan & Pengadaan · Audit (Opname, Penghapusan, Pemeliharaan) · Laporan · Pengaturan.
-- Mockup layar utama dibuat di awal Fase 0 untuk disetujui sebelum UI dibangun penuh.
-
----
-
-## 12. Tahapan Pengembangan
-
-Setiap fase: dikembangkan → tes otomatis lulus → uji coba Anda di server → live.
-
-### Fase 0 — Fondasi
-Repo & CI tes lokal · skema dasar + RLS · Auth (NPSN) · pendaftaran sekolah + panel pengelola platform · wizard setup + template jenjang · pengguna & peran · data dasar (unit, gedung/ruangan, gudang, kategori, satuan, sumber dana, penyedia) · log aktivitas · deploy `inventaris.ankdev.id`.
-**Selesai bila:** dua sekolah uji terisolasi total (tes otomatis), sekolah pending/nonaktif tidak bisa masuk.
-
-### Fase 1 — Inti Stok (MVP live)
-Katalog barang · penerimaan + **Kartu Penerimaan** + unit aset + **label QR** · pengeluaran + **Kartu Pengeluaran** · mutasi gudang & pindah ruangan · **Kartu Stok FIFO** · impor saldo awal · scan QR (PWA) · dashboard dasar · tutup periode.
-**Selesai bila:** tes FIFO & tes konkurensi lulus; saldo = Σ buku besar untuk setiap item×gudang; kartu cetak sesuai contoh yang Anda setujui.
-
-### Fase 2 — Alur Kerja
-Usulan berjenjang + pagu · pengadaan · permintaan barang · peminjaman + **Kartu Peminjaman** + akun siswa opsional · notifikasi di aplikasi + email · pengingat jatuh tempo.
-
-### Fase 3 — Audit & Laporan
-Stock opname · penghapusan · pemeliharaan · **KIR** · **KIB** · **Laporan Mutasi Persediaan** · **Berita Acara** · dashboard realtime (SSE) · ekspor Excel.
-
----
-
-## 13. Risiko & Mitigasi
+## 14. Risiko & Mitigasi
 
 | Risiko | Mitigasi |
 |---|---|
 | Selisih stok karena transaksi bersamaan | Kunci baris saldo & lot, urutan kunci tetap, constraint, tes konkurensi |
-| Kebocoran data antar sekolah | RLS + helper `withSchool` + tes isolasi otomatis di setiap fase |
-| Input mundur merusak urutan FIFO | Aturan tanggal §6.6 + tutup periode |
-| NPSN diklaim pihak lain | Persetujuan pengelola platform + cek ke referensi Kemendikdasmen |
-| Format cetak tidak sesuai kebutuhan sekolah/Pemda | Contoh format disetujui sebelum Fase 1/3; template kop & tanda tangan dapat diatur |
-| Server dipakai bersama aplikasi lain | systemd + batas memori, port & user terpisah, backup harian |
-| Ruang lingkup membesar | Fase berurutan dengan kriteria selesai yang jelas |
+| Kebocoran data antar sekolah | RLS + `withSchool` + tes isolasi otomatis |
+| Format/kode tidak sesuai aturan Pemda setempat | Kode lokal Pemda, jabatan & penandatangan bisa disesuaikan, nomor register bisa diimpor, format disetujui sebelum dibangun |
+| Sekolah tidak tahu kode pengguna/kuasa pengguna | Boleh menyusul; label register ditandai "sementara" sampai kode diisi |
+| Dataset regulasi berisi kesalahan | Kode ganda di regulasi didokumentasikan (`data/bmd/kode-ganda-di-regulasi.json`); dataset diverifikasi ke PDF resmi |
+| Sekolah non-negeri ikut mendaftar | Pernyataan wajib + verifikasi NPSN (status negeri) oleh pengelola platform |
 
 ---
 
-## 14. Yang Masih Perlu Diputuskan
+## 15. Tindak Lanjut
 
-1. **[KEPUTUSAN] Contoh format cetak.** Apakah ada format Kartu Penerimaan/Pengeluaran/Stok/KIR/KIB yang selama ini dipakai sekolah atau diminta Dinas/Yayasan? Bila ada, kirimkan contohnya; bila tidak, saya buat format standar untuk Anda setujui.
-2. **[KEPUTUSAN] Repo GitHub.** Buat repo kosong `pindoyono/inventaris` (privat/publik) dan pasang deploy key yang akan saya siapkan.
-3. **[KEPUTUSAN] DNS.** Tambahkan record `inventaris.ankdev.id` → 43.156.77.229 (atau CNAME ke `ankdev.id`).
-4. **[KEPUTUSAN] Email.** Akun SMTP untuk notifikasi (mis. alamat no-reply di domain Anda) — bisa menyusul di Fase 2.
-5. **[KEPUTUSAN] Data aplikasi persediaan lama.** Ada cadangan berisi 4 kategori & 10 barang. Dipindahkan sebagai data awal SMKN 2 Malinau, atau mulai bersih?
-6. **[KEPUTUSAN] Tahun anggaran.** Diasumsikan Januari–Desember (sesuai BOS). Ada sekolah yang memakai tahun ajaran (Juli–Juni) untuk anggarannya?
+1. **[TINDAK LANJUT] Deploy key** `inventaris` ditambahkan ke repo `pindoyono/inventaris` (Settings → Deploy keys, *Allow write access*).
+2. **[TINDAK LANJUT] Email:** buat **App Password** untuk `admin@smkn2malinau.sch.id` (wajib 2-Step Verification aktif) dan simpan di server (bukan di chat) — diperlukan di Fase 2. Disarankan menambah record SPF `v=spf1 include:_spf.google.com ~all` pada domain `smkn2malinau.sch.id` agar email tidak masuk spam.
+3. **[TINDAK LANJUT] Kode BMD SMKN 2 Malinau** (untuk sekolah uji pertama): kode pengguna barang Dinas Pendidikan Provinsi Kaltara, kode kuasa pengguna barang sekolah, dan batas kapitalisasi dari Perkada — bisa ditanyakan ke pengurus barang/BPKAD; boleh menyusul.
+4. **[TINDAK LANJUT] Persetujuan contoh format cetak** (§8) — dikirim bertahap sesuai fase.

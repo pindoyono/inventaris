@@ -1,0 +1,82 @@
+[
+ {
+  "kode": "1.3.2.05.03.04.002",
+  "tingkat": 7,
+  "uraian": "Bupati/Wakil Walikota Kursi Rapat Ruangan Rapat Ketua/Wakil Ketua DPRD"
+ },
+ {
+  "kode": "1.3.2.05.03.04.003",
+  "tingkat": 7,
+  "uraian": "Kursi Rapat Ruangan Rapat Pejabat Eselon III"
+ },
+ {
+  "kode": "1.3.2.05.03.04.004",
+  "tingkat": 7,
+  "uraian": "Kursi Rapat Ruangan Rapat Staf"
+ },
+ {
+  "kode": "1.3.2.05.03.05.002",
+  "tingkat": 7,
+  "uraian": "Kursi Hadap Depan Meja Kerja Ketua/Wakil Ketua DPRD"
+ },
+ {
+  "kode": "1.3.2.05.03.05.003",
+  "tingkat": 7,
+  "uraian": "Kursi Hadap Depan Meja Kerja Pejabat Eselon III"
+ },
+ {
+  "kode": "1.3.2.05.03.05.004",
+  "tingkat": 7,
+  "uraian": "Kursi Hadap Depan Meja Kerja Pejabat Eselon V"
+ },
+ {
+  "kode": "1.3.2.05.03.06.002",
+  "tingkat": 7,
+  "uraian": "Kursi Tamu di Ruangan Ketua/Wakil Ketua DPRD"
+ },
+ {
+  "kode": "1.3.2.05.03.06.003",
+  "tingkat": 7,
+  "uraian": "Kursi Tamu di Ruangan Pejabat Eselon III"
+ },
+ {
+  "kode": "1.3.2.05.03.06.004",
+  "tingkat": 7,
+  "uraian": "meja Tamu Ruangan iunggu lejauai Eselon I/Wakil Gubernur/Wakil"
+ },
+ {
+  "kode": "1.3.2.05.03.06.005",
+  "tingkat": 7,
+  "uraian": "Kursi Tamu di Ruangan Tunggu Pejabat Eselon I"
+ },
+ {
+  "kode": "1.3.2.05.03.06.006",
+  "tingkat": 7,
+  "uraian": "Kursi Tamu di Depan Ajudan Menteri/Gubernur/Bupati/Walikota"
+ },
+ {
+  "kode": "1.3.2.05.03.06.007",
+  "tingkat": 7,
+  "uraian": "Walikota Dst...."
+ },
+ {
+  "kode": "1.3.2.05.03.07.002",
+  "tingkat": 7,
+  "uraian": "Walikota Lemari Buku Untuk Ketua/Wakil Ketua DPRD"
+ },
+ {
+  "kode": "1.3.2.05.03.07.003",
+  "tingkat": 7,
+  "uraian": "Lemari Buku Untuk Pejabat Eselon III"
+ },
+ {
+  "kode": "1.3.2.05.03.07.004",
+  "tingkat": 7,
+  "uraian": "Lemari Buku Arsip Untuk Arsip Dinamis"
+ },
+ {
+  "kode": "1.3.2.05.03.07.005",
+  "tingkat": 7,
+  "uraian": "Buffet Kaca"
+ }
+]

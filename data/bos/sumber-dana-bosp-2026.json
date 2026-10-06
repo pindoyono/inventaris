@@ -1,0 +1,47 @@
+{
+  "sumber": "Permendikdasmen No. 8 Tahun 2026 tentang Petunjuk Teknis Pengelolaan Dana Bantuan Operasional Satuan Pendidikan",
+  "sumber_dana": [
+    {
+      "kode": "BOS_REGULER",
+      "nama": "BOS Reguler",
+      "komponen": [
+        "Penerimaan Murid baru",
+        "Pengembangan perpustakaan",
+        "Pelaksanaan kegiatan pembelajaran dan ekstrakurikuler",
+        "Pelaksanaan kegiatan asesmen dan evaluasi pembelajaran",
+        "Pelaksanaan administrasi kegiatan sekolah",
+        "Pengembangan profesi guru dan tenaga kependidikan",
+        "Pembiayaan langganan daya dan jasa",
+        "Pemeliharaan sarana dan prasarana sekolah",
+        "Penyediaan alat multimedia pembelajaran",
+        "Penyelenggaraan kegiatan peningkatan kompetensi keahlian",
+        "Penyelenggaraan kegiatan dalam mendukung keterserapan lulusan",
+        "Pembayaran honor"
+      ]
+    },
+    {
+      "kode": "BOS_KINERJA",
+      "nama": "BOS Kinerja",
+      "komponen": [
+        "Asesmen dan pemetaan talenta",
+        "Pengembangan talenta dan aktualisasi prestasi",
+        "Pengelolaan manajemen dan ekosistem",
+        "Pembinaan dan pengembangan prestasi (sekolah pengimbas)"
+      ]
+    },
+    {
+      "kode": "BOS_AFIRMASI",
+      "nama": "BOS Afirmasi",
+      "komponen": [
+        "Penguatan akses Satuan Pendidikan",
+        "Penguatan mutu Satuan Pendidikan"
+      ]
+    }
+  ],
+  "sumber_dana_lain_bawaan": [
+    { "kode": "APBD", "nama": "APBD (BOSDA/BOP Daerah)" },
+    { "kode": "DAK", "nama": "DAK Fisik" },
+    { "kode": "HIBAH", "nama": "Hibah/Sumbangan" },
+    { "kode": "LAINNYA", "nama": "Lainnya yang sah" }
+  ]
+}
