@@ -19,10 +19,10 @@ beforeAll(async () => {
 
 
 describe("katalog: semua tabel ber-school_id dilindungi RLS", () => {
-  test("setiap tabel dengan kolom school_id ada di RLS_TABLES (kecuali schools/platform_logs)", async () => {
+  test("setiap tabel dengan kolom school_id ada di RLS_TABLES (kecuali platform_logs & qr_tokens)", async () => {
     const rows = await owner`
       select table_name from information_schema.columns
-      where table_schema = 'public' and column_name = 'school_id' and table_name <> 'platform_logs'`;
+      where table_schema = 'public' and column_name = 'school_id' and table_name not in ('platform_logs', 'qr_tokens')`;
     const withSchoolId = rows.map((r) => r.table_name as string).sort();
     expect(withSchoolId).toEqual([...RLS_TABLES].sort());
   });

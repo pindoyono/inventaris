@@ -51,6 +51,9 @@ export const schoolLevel = pgEnum("school_level", ["SD", "SMP", "SMA", "SMK", "S
 export const schoolStatus = pgEnum("school_status", ["PENDING", "ACTIVE", "REJECTED", "SUSPENDED"]);
 export const userRole = pgEnum("user_role", ["ADMIN", "KEPSEK", "VERIFIKATOR", "PETUGAS", "PENGUSUL", "PEMINJAM"]);
 export const distributionMode = pgEnum("distribution_mode", ["LENGKAP", "RINGKAS"]);
+export const assetCondition = pgEnum("asset_condition", ["BAIK", "RUSAK_RINGAN", "RUSAK_BERAT"]);
+export const assetStatus = pgEnum("asset_status", ["DIGUNAKAN", "DIPINJAM", "DALAM_PEMELIHARAAN", "DIUSULKAN_HAPUS", "DIHAPUS", "HILANG"]);
+export const assetEventKind = pgEnum("asset_event_kind", ["DICATAT", "PINDAH", "KONDISI", "STATUS", "UBAH_DATA"]);
 /** Jenis dokumen stok persediaan */
 export const stockDocKind = pgEnum("stock_doc_kind", [
   "SALDO_AWAL",
@@ -143,6 +146,20 @@ export const platformLogs = pgTable("platform_logs", {
   schoolId: uuid("school_id").references(() => schools.id, { onDelete: "set null" }),
   detail: jsonb("detail"),
   ip: text("ip"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Peta token QR → sekolah (tanpa RLS) agar halaman publik /q/{token} tahu konteks sekolahnya.
+ * Token acak 96-bit; isi barang tetap dibaca lewat RLS sekolah.
+ */
+export const qrTokens = pgTable("qr_tokens", {
+  token: varchar("token", { length: 32 }).primaryKey(),
+  schoolId: uuid("school_id")
+    .notNull()
+    .references(() => schools.id, { onDelete: "cascade" }),
+  kind: varchar("kind", { length: 20 }).notNull(),
+  refId: uuid("ref_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -601,6 +618,90 @@ export const stockMovements = pgTable(
   ],
 );
 
+// ─────────────────────────────────────────────────────────── aset tetap per unit (Permendagri 108/2016 & 47/2021)
+
+/**
+ * Satu baris = satu unit barang dengan nomor register sendiri.
+ * Kode register: [kepemilikan].[01 intra|02 ekstra].[prov].[kab].[pengguna].[kuasa].[sub].[tahun] / [kode barang].[nomor urut 6 digit]
+ */
+export const assets = pgTable(
+  "assets",
+  {
+    id: id(),
+    schoolId: schoolId(),
+    bmdCode: varchar("bmd_code", { length: 32 }).notNull(),
+    /** Golongan KIB: A–F atau ATB (disalin dari kode barang) */
+    kib: varchar("kib", { length: 3 }).notNull(),
+    regNo: integer("reg_no").notNull(),
+    name: text("name").notNull(),
+    brand: text("brand"),
+    /** Atribut khusus KIB (ukuran/CC, bahan, no. pabrik/rangka/mesin/polisi/BPKB, luas, sertifikat, dst.) */
+    attrs: jsonb("attrs").$type<Record<string, string>>().notNull().default({}),
+    acqDate: date("acq_date").notNull(),
+    acqPrice: money("acq_price").notNull(),
+    acquisition: varchar("acquisition", { length: 30 }).notNull().default("PEMBELIAN"),
+    /** true = intrakomptabel (memenuhi batas kapitalisasi saat dicatat) */
+    isIntra: boolean("is_intra").notNull(),
+    fundingSourceId: uuid("funding_source_id"),
+    fundingComponentId: uuid("funding_component_id"),
+    vendorId: uuid("vendor_id"),
+    refNumber: text("ref_number"),
+    roomId: uuid("room_id"),
+    unitId: uuid("unit_id"),
+    condition: assetCondition("condition").notNull().default("BAIK"),
+    status: assetStatus("status").notNull().default("DIGUNAKAN"),
+    /** Unit yang dicatat bersamaan (mis. 30 kursi satu pembelian) */
+    batchId: uuid("batch_id").notNull(),
+    qrToken: varchar("qr_token", { length: 32 }).notNull().default(sql`encode(gen_random_bytes(12), 'hex')`),
+    note: text("note"),
+    createdBy: uuid("created_by"),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("assets_school_id_key").on(t.schoolId, t.id),
+    uniqueIndex("assets_school_code_reg_key").on(t.schoolId, t.bmdCode, t.regNo),
+    uniqueIndex("assets_qr_key").on(t.qrToken),
+    index("assets_school_room_idx").on(t.schoolId, t.roomId),
+    index("assets_school_batch_idx").on(t.schoolId, t.batchId),
+    sameSchool(t, "roomId", rooms),
+    sameSchool(t, "unitId", units),
+    sameSchool(t, "vendorId", vendors),
+    sameSchool(t, "fundingSourceId", fundingSources),
+    sameSchool(t, "fundingComponentId", fundingComponents),
+    check("assets_reg_no_check", sql`${t.regNo} between 1 and 999999`),
+    check("assets_price_check", sql`${t.acqPrice} >= 0`),
+    check("assets_kib_check", sql`${t.kib} in ('A','B','C','D','E','F','ATB')`),
+  ],
+);
+
+/** Riwayat aset (lokasi, kondisi, status, perubahan data) — hanya INSERT */
+export const assetEvents = pgTable(
+  "asset_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    schoolId: schoolId(),
+    assetId: uuid("asset_id").notNull(),
+    kind: assetEventKind("kind").notNull(),
+    date: date("date").notNull(),
+    fromRoomId: uuid("from_room_id"),
+    toRoomId: uuid("to_room_id"),
+    fromCondition: assetCondition("from_condition"),
+    toCondition: assetCondition("to_condition"),
+    fromStatus: assetStatus("from_status"),
+    toStatus: assetStatus("to_status"),
+    note: text("note"),
+    createdBy: uuid("created_by"),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("asset_events_asset_idx").on(t.schoolId, t.assetId, t.id),
+    sameSchool(t, "assetId", assets, "cascade"),
+    sameSchool(t, "fromRoomId", rooms),
+    sameSchool(t, "toRoomId", rooms),
+  ],
+);
+
 /** Tabel ber-school_id yang wajib dilindungi RLS (dipakai migrasi & tes isolasi) */
 export const RLS_TABLES = [
   "school_settings",
@@ -626,4 +727,6 @@ export const RLS_TABLES = [
   "stock_lots",
   "stock_balances",
   "stock_movements",
+  "assets",
+  "asset_events",
 ] as const;

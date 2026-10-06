@@ -2,27 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, asc, eq, ilike, inArray, like, or, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { alias } from "drizzle-orm/pg-core";
-import { db } from "@/db";
-import { bmdCodes, localBmdCodes, supplyItems } from "@/db/schema";
+import { supplyItems } from "@/db/schema";
 import { runSchoolAction, type FormState } from "@/lib/server/action";
 import { logActivity } from "@/lib/server/activity";
 import { cancelDoc, postDoc } from "@/lib/server/ledger";
 import { createSupplyItem, deleteDraftDoc, saveDraftDoc, type DocInput } from "@/lib/server/supply";
-import { requireSchoolUser, withSchool } from "@/lib/tenant";
+import { requireSchoolUser } from "@/lib/tenant";
+import { searchCodes } from "@/lib/server/code-search";
 import { normalizeIdNumber, parseDec, toDec } from "@/lib/decimal";
 import { fieldErrors, formToObject } from "@/lib/validations";
-import sinonim from "../../../../data/bmd/sinonim-persediaan.json";
-
-/** Kode saran dari nama sehari-hari ("spidol" → Alat Tulis) */
-function synonymCodes(term: string) {
-  const t = term.toLowerCase();
-  if (t.length < 3) return [];
-  const hits = Object.entries(sinonim.sinonim as Record<string, string[]>).filter(([k]) => t.includes(k) || k.startsWith(t));
-  return [...new Set(hits.flatMap(([, codes]) => codes))].map((code) => ({ code, words: hits.filter(([, c]) => c.includes(code)).map(([k]) => k) }));
-}
 
 const STOCK_ROLES = ["ADMIN", "PETUGAS"] as const;
 
@@ -71,48 +61,10 @@ export async function saveItem(_prev: FormState, fd: FormData): Promise<FormStat
   return res;
 }
 
-/** Cari kode barang persediaan (tingkat 7 resmi + kode lokal 1.1.7) untuk pemilih kode */
+/** Cari kode barang persediaan (tingkat 7 resmi + kode lokal 1.1.7 + sinonim) untuk pemilih kode */
 export async function searchPersediaanCodes(q: string) {
   const s = await requireSchoolUser();
-  const term = q.trim().slice(0, 60);
-  if (term.length < 2) return [];
-  const isCode = /^[\d.]+$/.test(term);
-  const esc = term.replace(/[%_\\]/g, "\\$&");
-  const parent = alias(bmdCodes, "parent");
-  const official = await db
-    .select({ code: bmdCodes.code, name: bmdCodes.name, parent: sql<string>`coalesce(${parent.name}, '')` })
-    .from(bmdCodes)
-    .leftJoin(parent, eq(parent.code, bmdCodes.parentCode))
-    .where(
-      and(
-        eq(bmdCodes.class, "PERSEDIAAN"),
-        eq(bmdCodes.selectable, true),
-        eq(bmdCodes.level, 7),
-        isCode ? like(bmdCodes.code, `${term}%`) : or(ilike(bmdCodes.name, `%${esc}%`), ilike(parent.name, `%${esc}%`)),
-      ),
-    )
-    .orderBy(asc(bmdCodes.code))
-    .limit(40);
-  const local = await withSchool(s.schoolId, (tx) =>
-    tx
-      .select({ code: localBmdCodes.code, name: localBmdCodes.name })
-      .from(localBmdCodes)
-      .where(and(like(localBmdCodes.code, "1.1.7.%"), isCode ? like(localBmdCodes.code, `${term}%`) : ilike(localBmdCodes.name, `%${esc}%`))),
-  );
-  const syn = isCode ? [] : synonymCodes(term);
-  const synRows = syn.length
-    ? await db
-        .select({ code: bmdCodes.code, name: bmdCodes.name, parent: sql<string>`coalesce(${parent.name}, '')` })
-        .from(bmdCodes)
-        .leftJoin(parent, eq(parent.code, bmdCodes.parentCode))
-        .where(inArray(bmdCodes.code, syn.map((x) => x.code)))
-    : [];
-  const suggested = syn
-    .map((x) => synRows.find((r) => r.code === x.code))
-    .filter((r): r is NonNullable<typeof r> => !!r)
-    .map((r) => ({ ...r, parent: `Saran untuk “${syn.find((x) => x.code === r.code)!.words[0]}” · ${r.parent}` }));
-  const seen = new Set(suggested.map((r) => r.code));
-  return [...suggested, ...local.map((l) => ({ ...l, parent: "Kode lokal" })), ...official.filter((o) => !seen.has(o.code))];
+  return searchCodes(s.schoolId, q, "persediaan");
 }
 
 // ─────────────────────────────── dokumen stok

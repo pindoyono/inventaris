@@ -36,6 +36,20 @@
       "when": 1791288762089,
       "tag": "0004_rls_persediaan",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791293823876,
+      "tag": "0005_aset",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791293824738,
+      "tag": "0006_rls_aset",
+      "breakpoints": true
     }
   ]
 }
