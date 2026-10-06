@@ -161,3 +161,80 @@ export async function mutasiData(tx: Tx, from: string, to: string, warehouseId: 
 export async function warehouseOptions(tx: Tx) {
   return tx.select({ id: warehouses.id, name: warehouses.name }).from(warehouses).orderBy(asc(warehouses.name));
 }
+
+// ───────── Permendagri 7/2024: laporan pemantauan (C.3, C.23) & daftar dokumen kepemilikan (B)
+
+/** Baris "menurut jenis" (sub-sub golongan) seperti petunjuk pengisian Format C */
+export const JENIS_BMD = [
+  { kib: "A", code: "1.3.1", name: "Tanah" },
+  { kib: "B", code: "1.3.2", name: "Peralatan dan Mesin" },
+  { kib: "C", code: "1.3.3", name: "Gedung dan Bangunan" },
+  { kib: "D", code: "1.3.4", name: "Jalan, Irigasi dan Jaringan" },
+  { kib: "E", code: "1.3.5", name: "Aset Tetap Lainnya" },
+  { kib: "ATB", code: "1.5.3", name: "Aset Tak Berwujud" },
+] as const;
+
+/** C.23 — BMD rusak berat/usang & tindak lanjutnya dalam satu tahun */
+export async function rusakBeratData(tx: Tx, year: number) {
+  const end = `${year}-12-31`;
+  const rb = await tx
+    .select({ kib: assets.kib, n: sql<number>`count(*)::int`, v: sql<string>`coalesce(sum(${assets.acqPrice}),0)` })
+    .from(assets)
+    .where(and(eq(assets.condition, "RUSAK_BERAT"), ne(assets.status, "DIHAPUS"), lte(assets.acqDate, end)))
+    .groupBy(assets.kib);
+  const prop = await tx.execute(sql`
+    select a.kib, l.follow_up, count(*)::int n, coalesce(sum(a.acq_price),0)::text v
+    from disposal_lines l join disposals d on d.id = l.disposal_id join assets a on a.id = l.asset_id
+    where d.status in ('DIAJUKAN','DIKIRIM','SELESAI') and l.reason in ('RUSAK_BERAT','USANG')
+      and extract(year from coalesce(d.submitted_at, d.created_at) at time zone 'Asia/Makassar') = ${year}
+    group by a.kib, l.follow_up`);
+  const pRows = [...prop] as unknown as { kib: string; follow_up: string; n: number; v: string }[];
+  const [ps] = await tx
+    .select({ q: sql<string>`coalesce(sum(${stockMovements.qtyOut}),0)`, v: sql<string>`coalesce(sum(${stockMovements.value}),0)` })
+    .from(stockMovements)
+    .innerJoin(stockDocs, eq(stockDocs.id, stockMovements.docId))
+    .where(and(eq(stockMovements.kind, "RUSAK_USANG"), eq(stockDocs.status, "DIPOSTING"), sql`extract(year from ${stockMovements.date}) = ${year}`));
+  const rows: { code: string; name: string; n: number; v: bigint; ptN: number; ptV: bigint; pmN: number; pmV: bigint }[] = JENIS_BMD.filter((j) => j.kib !== "ATB").map((j) => {
+    const r = rb.find((x) => x.kib === j.kib);
+    const pt = pRows.find((x) => x.kib === j.kib && x.follow_up === "PEMINDAHTANGANAN");
+    const pm = pRows.find((x) => x.kib === j.kib && x.follow_up === "PEMUSNAHAN");
+    return { code: j.code, name: `${j.name} rusak berat/usang`, n: r?.n ?? 0, v: parseDec(r?.v ?? "0"), ptN: pt?.n ?? 0, ptV: parseDec(pt?.v ?? "0"), pmN: pm?.n ?? 0, pmV: parseDec(pm?.v ?? "0") };
+  });
+  rows.push({ code: "1.1.7", name: "Persediaan rusak berat/usang", n: Number(ps.q), v: parseDec(ps.v), ptN: 0, ptV: 0n, pmN: 0, pmV: 0n });
+  return rows;
+}
+
+/** C.3 — BMD tidak digunakan untuk tugas & fungsi */
+export async function tidakDigunakanData(tx: Tx) {
+  const r = await tx
+    .select({ kib: assets.kib, plan: assets.idlePlan, n: sql<number>`count(*)::int`, v: sql<string>`coalesce(sum(${assets.acqPrice}),0)` })
+    .from(assets)
+    .where(and(eq(assets.idle, true), ne(assets.status, "DIHAPUS")))
+    .groupBy(assets.kib, assets.idlePlan);
+  return JENIS_BMD.map((j) => {
+    const g = r.filter((x) => x.kib === j.kib);
+    const by = (p: string) => g.filter((x) => x.plan === p).reduce((a, x) => a + x.n, 0);
+    return { code: j.code, name: j.name, n: g.reduce((a, x) => a + x.n, 0), v: g.reduce((a, x) => a + parseDec(x.v), 0n), penggunaan: by("PENGGUNAAN"), pemanfaatan: by("PEMANFAATAN"), pemindahtanganan: by("PEMINDAHTANGANAN") };
+  });
+}
+
+/** B.1 (sertifikat tanah) / B.2 (selain sertifikat tanah: BPKB, dokumen gedung, dsb.) */
+export async function dokumenKepemilikanData(tx: Tx, jenis: "tanah" | "lain") {
+  const list = await tx.select().from(assets).where(and(ne(assets.status, "DIHAPUS"), jenis === "tanah" ? eq(assets.kib, "A") : sql`${assets.kib} <> 'A'`)).orderBy(asc(assets.bmdCode), asc(assets.regNo));
+  const names = await codeNames(tx, list.map((a) => a.bmdCode));
+  return list
+    .map((a) => {
+      const at = a.attrs;
+      const doc =
+        a.kib === "A" ? (at.sertifikatNo ? { jenis: at.hak ? `Sertifikat ${at.hak}` : "Sertifikat", nomor: at.sertifikatNo, tanggal: at.sertifikatTgl ?? "" } : null)
+        : a.kib === "B" ? (at.noBpkb ? { jenis: "BPKB", nomor: at.noBpkb, tanggal: "" } : null)
+        : a.kib === "C" ? (at.dokumenNo ? { jenis: "Dokumen gedung (IMB/PBG)", nomor: at.dokumenNo, tanggal: at.dokumenTgl ?? "" } : null)
+        : null;
+      if (!doc) return null;
+      return {
+        code: a.bmdCode, codeName: names.get(a.bmdCode) ?? "", spec: [a.name, a.brand, at.noPolisi ? `Nopol ${at.noPolisi}` : ""].filter(Boolean).join(" · "),
+        luas: at.luas ?? at.luasLantai ?? "", satuan: at.luas || at.luasLantai ? "m²" : "", lokasi: at.alamat ?? at.letak ?? "", doc, reg: a.regNo,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x);
+}

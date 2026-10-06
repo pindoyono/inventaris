@@ -122,7 +122,7 @@ const disposalSchema = z.object({
   date,
   note: z.string().max(500).optional().transform((v) => v?.trim() || null),
   lines: z
-    .array(z.object({ assetId: uuid, reason: z.enum(["RUSAK_BERAT", "USANG", "KECURIAN", "HILANG", "TERBAKAR_SUSUT", "KAHAR", "INVENTARISASI"]), policeLetter: z.string().max(100).optional(), note: z.string().max(200).optional() }))
+    .array(z.object({ assetId: uuid, reason: z.enum(["RUSAK_BERAT", "USANG", "KECURIAN", "HILANG", "TERBAKAR_SUSUT", "KAHAR", "INVENTARISASI"]), followUp: z.enum(["PEMUSNAHAN", "PEMINDAHTANGANAN"]).optional(), policeLetter: z.string().max(100).optional(), note: z.string().max(200).optional() }))
     .min(1, "Pilih minimal satu barang"),
 });
 export async function saveDisposalAction(payload: z.input<typeof disposalSchema>): Promise<FormState> {

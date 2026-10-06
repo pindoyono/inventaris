@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import { Alert, Button } from "@/components/ui";
 import { CONDITION_LABEL } from "@/lib/assets-shared";
-import { conditionAction, moveAssetsAction } from "../actions";
+import { conditionAction, idleAction, moveAssetsAction } from "../actions";
 
-export function QuickActions({ id, roomId, condition, rooms, today }: { id: string; roomId: string | null; condition: string; rooms: { id: string; name: string }[]; today: string }) {
+export function QuickActions({ id, roomId, condition, rooms, today, idle }: { id: string; roomId: string | null; condition: string; rooms: { id: string; name: string }[]; today: string; idle: boolean }) {
+  const [plan, setPlan] = useState("PENGGUNAAN");
   const [room, setRoom] = useState(roomId ?? "");
   const [cond, setCond] = useState(condition);
   const [date, setDate] = useState(today);
@@ -41,6 +42,20 @@ export function QuickActions({ id, roomId, condition, rooms, today }: { id: stri
           {Object.entries(CONDITION_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
         <Button type="button" variant="secondary" disabled={pending || cond === condition} onClick={() => run(() => conditionAction({ ids: [id], condition: cond, date, note }))}>Simpan kondisi</Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+        {idle ? (
+          <Button type="button" variant="secondary" disabled={pending} onClick={() => run(() => idleAction({ id, idle: false }))}>Tandai digunakan kembali</Button>
+        ) : (
+          <>
+            <select value={plan} onChange={(e) => setPlan(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1.5" title="Rencana atas barang tidak digunakan (Format C.3)">
+              <option value="PENGGUNAAN">Rencana: dialihkan penggunaannya</option>
+              <option value="PEMANFAATAN">Rencana: dimanfaatkan (sewa, dsb.)</option>
+              <option value="PEMINDAHTANGANAN">Rencana: dipindahtangankan</option>
+            </select>
+            <Button type="button" variant="secondary" disabled={pending} onClick={() => run(() => idleAction({ id, idle: true, plan, note }))}>Tidak digunakan untuk tusi</Button>
+          </>
+        )}
       </div>
     </div>
   );

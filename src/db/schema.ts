@@ -69,6 +69,10 @@ export const opnameStatus = pgEnum("opname_status", ["DRAF", "DIAJUKAN", "DISETU
 export const inventoryStatus = pgEnum("inventory_status", ["DRAF", "SELESAI", "DIBATALKAN"]);
 export const disposalStatus = pgEnum("disposal_status", ["DRAF", "DIAJUKAN", "DIKIRIM", "SELESAI", "DITOLAK", "DIBATALKAN"]);
 export const disposalReason = pgEnum("disposal_reason", ["RUSAK_BERAT", "USANG", "KECURIAN", "HILANG", "TERBAKAR_SUSUT", "KAHAR", "INVENTARISASI"]);
+/** Tindak lanjut barang yang diusulkan hapus (Permendagri 7/2024 Format C.23) */
+export const disposalFollowUp = pgEnum("disposal_follow_up", ["PEMUSNAHAN", "PEMINDAHTANGANAN"]);
+/** Rencana atas BMD tidak digunakan untuk tugas & fungsi (Format C.3) */
+export const idlePlan = pgEnum("idle_plan", ["PENGGUNAAN", "PEMANFAATAN", "PEMINDAHTANGANAN"]);
 export const maintenanceKind = pgEnum("maintenance_kind", ["RUTIN", "PERBAIKAN", "PENINGKATAN"]);
 export const maintenanceStatus = pgEnum("maintenance_status", ["BERJALAN", "SELESAI"]);
 /** Jenis dokumen stok persediaan */
@@ -694,6 +698,10 @@ export const assets = pgTable(
     unitId: uuid("unit_id"),
     condition: assetCondition("condition").notNull().default("BAIK"),
     status: assetStatus("status").notNull().default("DIGUNAKAN"),
+    /** BMD tidak digunakan untuk penyelenggaraan tugas & fungsi (Format C.3 Permendagri 7/2024) */
+    idle: boolean("idle").notNull().default(false),
+    idlePlan: idlePlan("idle_plan"),
+    idleNote: text("idle_note"),
     /** Unit yang dicatat bersamaan (mis. 30 kursi satu pembelian) */
     batchId: uuid("batch_id").notNull(),
     qrToken: varchar("qr_token", { length: 32 }).notNull().default(sql`encode(gen_random_bytes(12), 'hex')`),
@@ -1041,6 +1049,7 @@ export const disposalLines = pgTable(
     disposalId: uuid("disposal_id").notNull(),
     assetId: uuid("asset_id").notNull(),
     reason: disposalReason("reason").notNull(),
+    followUp: disposalFollowUp("follow_up").notNull().default("PEMUSNAHAN"),
     /** Wajib bila kecurian: nomor surat keterangan kepolisian */
     policeLetter: text("police_letter"),
     note: text("note"),

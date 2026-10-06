@@ -129,3 +129,17 @@ export async function setCondition(tx: Tx, s: SchoolSession, ids: string[], cond
   );
   return rows.length;
 }
+
+export type IdlePlan = "PENGGUNAAN" | "PEMANFAATAN" | "PEMINDAHTANGANAN";
+
+/** Tandai/cabut BMD tidak digunakan untuk tugas & fungsi (Permendagri 7/2024 Format C.3) */
+export async function setIdle(tx: Tx, s: SchoolSession, id: string, idle: boolean, plan: IdlePlan | null, note: string | null) {
+  const [a] = await lockAssets(tx, [id]);
+  if (idle && !plan) throw new UserError("Pilih rencana tindak lanjut (penggunaan, pemanfaatan, atau pemindahtanganan)");
+  await tx.update(assets).set({ idle, idlePlan: idle ? plan : null, idleNote: idle ? note : null, updatedAt: new Date() }).where(eq(assets.id, id));
+  await tx.insert(assetEvents).values({
+    schoolId: s.schoolId, assetId: id, kind: "UBAH_DATA", date: todayWita(), createdBy: s.userId, createdByName: s.userName,
+    note: idle ? `Ditandai tidak digunakan untuk tugas & fungsi (rencana: ${plan!.toLowerCase()})${note ? `: ${note}` : ""}` : "Kembali digunakan untuk tugas & fungsi",
+  });
+  return a.name;
+}

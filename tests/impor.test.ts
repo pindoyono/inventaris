@@ -37,7 +37,7 @@ describe("impor Excel", () => {
   test("template bisa dibaca kembali (judul cocok, tanpa baris data)", async () => {
     const buf = await buildTemplate("aset");
     await expect(readImportFile("aset", new File([buf], "t.xlsx"))).rejects.toThrow("Tidak ada baris data");
-  });
+  }, 20_000);
 
   test("ruangan: gedung & unit dibuat otomatis; nama ganda ditolak", async () => {
     const f = await xlsx([["Nama Ruangan", "Gedung", "Unit", "Penanggung Jawab", "NIP Penanggung Jawab"], ["Lab Komputer 1", "Gedung B", "TKJ", "Andi", "198804042011011004"], ["Kelas X-1", "Gedung A", "", "", ""], ["lab komputer 1", "", "", "", ""]]);

@@ -12,7 +12,7 @@ const REASONS: Record<Reason, string> = {
   RUSAK_BERAT: "Rusak berat", USANG: "Usang/tidak dapat digunakan", KECURIAN: "Hilang karena kecurian", HILANG: "Hilang/tidak ditemukan",
   TERBAKAR_SUSUT: "Terbakar/susut/kedaluwarsa", KAHAR: "Keadaan kahar (bencana)", INVENTARISASI: "Tindak lanjut hasil inventarisasi",
 };
-type Line = Found & { reason: Reason; policeLetter: string; note: string };
+type Line = Found & { reason: Reason; followUp: "PEMUSNAHAN" | "PEMINDAHTANGANAN"; policeLetter: string; note: string };
 
 export function DisposalForm({ initial, today }: { initial: { id?: string; date: string; note: string; lines: Line[] }; today: string }) {
   const [d, setD] = useState(initial);
@@ -33,14 +33,14 @@ export function DisposalForm({ initial, today }: { initial: { id?: string; date:
         ...cur.lines,
         ...list
           .filter((f) => !cur.lines.some((l) => l.id === f.id))
-          .map((f) => ({ ...f, reason: (f.status === "HILANG" ? "HILANG" : f.condition === "RUSAK_BERAT" ? "RUSAK_BERAT" : "USANG") as Reason, policeLetter: "", note: "" })),
+          .map((f) => ({ ...f, reason: (f.status === "HILANG" ? "HILANG" : f.condition === "RUSAK_BERAT" ? "RUSAK_BERAT" : "USANG") as Reason, followUp: "PEMUSNAHAN" as const, policeLetter: "", note: "" })),
       ],
     }));
   const preset = (p: "RUSAK_BERAT" | "HILANG") => start(async () => add(await searchDisposableAssets("", p)));
   const upd = (i: number, patch: Partial<Line>) => setD({ ...d, lines: d.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
   function submit() {
     start(async () => {
-      const r = await saveDisposalAction({ id: d.id, date: d.date, note: d.note, lines: d.lines.map((l) => ({ assetId: l.id, reason: l.reason, policeLetter: l.policeLetter, note: l.note })) });
+      const r = await saveDisposalAction({ id: d.id, date: d.date, note: d.note, lines: d.lines.map((l) => ({ assetId: l.id, reason: l.reason, followUp: l.followUp, policeLetter: l.policeLetter, note: l.note })) });
       if (r?.errors) setErr(r.errors._form ?? Object.values(r.errors)[0]);
     });
   }
@@ -84,6 +84,12 @@ export function DisposalForm({ initial, today }: { initial: { id?: string; date:
                 <select value={l.reason} onChange={(e) => upd(i, { reason: e.target.value as Reason })} className="rounded-md border border-slate-300 px-2 py-1">
                   {Object.entries(REASONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
+                {(l.reason === "RUSAK_BERAT" || l.reason === "USANG") && (
+                  <select value={l.followUp} onChange={(e) => upd(i, { followUp: e.target.value as Line["followUp"] })} className="rounded-md border border-slate-300 px-2 py-1" title="Tindak lanjut (Permendagri 7/2024 Format C.23)">
+                    <option value="PEMUSNAHAN">Diusulkan pemusnahan</option>
+                    <option value="PEMINDAHTANGANAN">Diusulkan pemindahtanganan (dijual/dihibahkan)</option>
+                  </select>
+                )}
                 {l.reason === "KECURIAN" && <input value={l.policeLetter} onChange={(e) => upd(i, { policeLetter: e.target.value })} placeholder="No. surat keterangan kepolisian (wajib)" className="rounded-md border border-slate-300 px-2 py-1" />}
                 <input value={l.note} onChange={(e) => upd(i, { note: e.target.value })} placeholder="Keterangan" className="rounded-md border border-slate-300 px-2 py-1" />
               </div>

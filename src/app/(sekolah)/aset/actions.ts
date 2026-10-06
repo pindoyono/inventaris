@@ -7,7 +7,7 @@ import { z } from "zod";
 import { assetEvents, assets } from "@/db/schema";
 import { runSchoolAction, type FormState } from "@/lib/server/action";
 import { logActivity } from "@/lib/server/activity";
-import { createAssets, moveAssets, setCondition } from "@/lib/server/assets";
+import { createAssets, moveAssets, setCondition, setIdle } from "@/lib/server/assets";
 import { todayWita } from "@/lib/server/ledger";
 import { searchCodes } from "@/lib/server/code-search";
 import { requireSchoolUser } from "@/lib/tenant";
@@ -130,6 +130,18 @@ export async function conditionAction(input: { ids: string[]; condition: string;
     const n = await setCondition(tx, s, d.ids, d.condition, d.date, d.note);
     await logActivity(tx, s, "KONDISI", "aset", null, null, { ids: d.ids, condition: d.condition, date: d.date });
     return { ok: `Kondisi ${n} aset diperbarui.` };
+  });
+  revalidatePath("/aset", "layout");
+  return res;
+}
+
+export async function idleAction(input: { id: string; idle: boolean; plan?: string; note?: string }): Promise<FormState> {
+  const p = z.object({ id: z.uuid(), idle: z.boolean(), plan: z.enum(["PENGGUNAAN", "PEMANFAATAN", "PEMINDAHTANGANAN"]).optional(), note: z.string().max(300).optional() }).safeParse(input);
+  if (!p.success) return { errors: { _form: "Data tidak valid" } };
+  const res = await runSchoolAction([...ROLES], async (tx, s) => {
+    await setIdle(tx, s, p.data.id, p.data.idle, p.data.plan ?? null, p.data.note?.trim() || null);
+    await logActivity(tx, s, p.data.idle ? "TIDAK_DIGUNAKAN" : "DIGUNAKAN_KEMBALI", "aset", p.data.id, null, p.data);
+    return { ok: p.data.idle ? "Ditandai tidak digunakan untuk tugas & fungsi." : "Ditandai digunakan kembali." };
   });
   revalidatePath("/aset", "layout");
   return res;

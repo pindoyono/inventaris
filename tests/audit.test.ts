@@ -135,3 +135,30 @@ describe("pemeliharaan", () => {
     expect([a.status, a.condition]).toEqual(["DIGUNAKAN", "BAIK"]);
   });
 });
+
+describe("Permendagri 7/2024 C.23 & C.3", () => {
+  test("rusak berat & usulan pemindahtanganan/pemusnahan; tidak digunakan per rencana", async () => {
+    const { rusakBeratData, tidakDigunakanData } = await import("@/lib/server/reports");
+    const { setIdle, setCondition } = await import("@/lib/server/assets");
+    const r = await newAssets({ name: "Printer lama", qty: 3, acqPrice: "2500000" });
+    await tx((t) => setCondition(t, who.petugas, r.ids, "RUSAK_BERAT", todayWita(), null));
+    const id = await tx((t) => saveDisposalDraft(t, who.petugas, { date: todayWita(), note: null, lines: [
+      { assetId: r.ids[0], reason: "RUSAK_BERAT", followUp: "PEMINDAHTANGANAN" },
+      { assetId: r.ids[1], reason: "RUSAK_BERAT" },
+    ] }));
+    await tx((t) => actOnDisposal(t, who.kepsek, id, { action: "AJUKAN" }));
+    const year = Number(todayWita().slice(0, 4));
+    const rb = await tx((t) => rusakBeratData(t, year));
+    const pm = rb.find((x) => x.code === "1.3.2")!;
+    expect([pm.ptN, pm.ptV]).toEqual([1, 250_000_000n]);
+    expect(pm.pmN).toBeGreaterThanOrEqual(1); // termasuk usulan rusak berat/usang dari tes sebelumnya
+    expect(pm.n).toBeGreaterThanOrEqual(3);
+    expect(rb.find((x) => x.code === "1.1.7")!.n).toBeGreaterThan(0); // dari opname (rusak/usang)
+    const lap = await newAssets({ name: "Laptop gudang", qty: 2 });
+    await tx((t) => setIdle(t, who.petugas, lap.ids[0], true, "PEMANFAATAN", null));
+    await tx((t) => setIdle(t, who.petugas, lap.ids[1], true, "PEMINDAHTANGANAN", "spesifikasi usang"));
+    expect(await err(tx((t) => setIdle(t, who.petugas, r.ids[2], true, null, null)))).toContain("rencana");
+    const td = (await tx((t) => tidakDigunakanData(t))).find((x) => x.code === "1.3.2")!;
+    expect([td.n, td.pemanfaatan, td.pemindahtanganan, td.penggunaan]).toEqual([2, 1, 1, 0]);
+  });
+});

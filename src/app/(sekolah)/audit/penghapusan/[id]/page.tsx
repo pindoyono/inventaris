@@ -42,7 +42,7 @@ export default async function UsulanDetailPage({ params, searchParams }: PagePro
     return (
       <div className="max-w-4xl">
         <PageTitle title="Ubah draf usulan" back={{ href: `/audit/penghapusan/${id}`, label: "Usulan" }} />
-        <DisposalForm today={todayWita()} initial={{ id, date: d.date, note: d.note ?? "", lines: lines.map(({ l, a, room }) => ({ id: a.id, name: a.name, brand: a.brand, bmdCode: a.bmdCode, regNo: a.regNo, condition: a.condition, status: a.status, acqDate: a.acqDate, acqPrice: a.acqPrice, room, reason: l.reason, policeLetter: l.policeLetter ?? "", note: l.note ?? "" })) }} />
+        <DisposalForm today={todayWita()} initial={{ id, date: d.date, note: d.note ?? "", lines: lines.map(({ l, a, room }) => ({ id: a.id, name: a.name, brand: a.brand, bmdCode: a.bmdCode, regNo: a.regNo, condition: a.condition, status: a.status, acqDate: a.acqDate, acqPrice: a.acqPrice, room, reason: l.reason, followUp: l.followUp, policeLetter: l.policeLetter ?? "", note: l.note ?? "" })) }} />
       </div>
     );
 
@@ -71,7 +71,7 @@ export default async function UsulanDetailPage({ params, searchParams }: PagePro
                   <td className="px-3 py-2">{a.acqDate.slice(0, 4)}</td>
                   <td className="px-3 py-2">{CONDITION_LABEL[a.condition]} · {room ?? "—"}</td>
                   <td className="px-3 py-2 text-right">{fmtRp(a.acqPrice)}</td>
-                  <td className="px-3 py-2">{DISPOSAL_REASON_LABEL[l.reason]}{l.policeLetter && <span className="block text-xs text-slate-500">Surat polisi: {l.policeLetter}</span>}{l.note && <span className="block text-xs text-slate-500">{l.note}</span>}</td>
+                  <td className="px-3 py-2">{DISPOSAL_REASON_LABEL[l.reason]}{(l.reason === "RUSAK_BERAT" || l.reason === "USANG") && <span className="block text-xs text-slate-500">{l.followUp === "PEMINDAHTANGANAN" ? "→ pemindahtanganan" : "→ pemusnahan"}</span>}{l.policeLetter && <span className="block text-xs text-slate-500">Surat polisi: {l.policeLetter}</span>}{l.note && <span className="block text-xs text-slate-500">{l.note}</span>}</td>
                   <td className="px-3 py-2 text-xs">{a.status.toLowerCase().replaceAll("_", " ")}</td>
                 </tr>
               );

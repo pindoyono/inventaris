@@ -77,7 +77,7 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
               <dt className="text-slate-500">Ruangan</dt><dd>{data.room ?? "Belum ditempatkan"}</dd>
               {data.unit && (<><dt className="text-slate-500">Unit</dt><dd>{data.unit}</dd></>)}
               <dt className="text-slate-500">Kondisi</dt><dd>{CONDITION_LABEL[a.condition]}</dd>
-              <dt className="text-slate-500">Status</dt><dd>{STATUS_LABEL[a.status]}</dd>
+              <dt className="text-slate-500">Status</dt><dd>{STATUS_LABEL[a.status]}{a.idle && <span className="ml-2 rounded bg-amber-100 px-1.5 text-xs text-amber-800">tidak digunakan untuk tusi · rencana {a.idlePlan?.toLowerCase()}{a.idleNote ? ` · ${a.idleNote}` : ""}</span>}</dd>
               {(KIB_ATTRS[a.kib] ?? []).filter((x) => a.attrs[x.key]).map((x) => (
                 <Fragment key={x.key}><dt className="text-slate-500">{x.label}</dt><dd>{a.attrs[x.key]}</dd></Fragment>
               ))}
@@ -132,7 +132,7 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
             <p className="mt-2 text-xs text-slate-500">QR membuka halaman barang ini.</p>
             {canEdit && <a href={`/cetak/label?id=${a.id}`} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-medium text-teal-700 hover:underline">Cetak label</a>}
           </section>
-          {canEdit && a.status !== "DIHAPUS" && <QuickActions id={a.id} roomId={a.roomId} condition={a.condition} rooms={data.roomOpts} today={todayWita()} />}
+          {canEdit && a.status !== "DIHAPUS" && <QuickActions id={a.id} roomId={a.roomId} condition={a.condition} rooms={data.roomOpts} today={todayWita()} idle={a.idle} />}
         </div>
       </div>
     </div>
