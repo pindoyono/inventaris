@@ -292,7 +292,7 @@ def sppb():
 
 def label_register():
     satu = """<div class="label">
-  <div class="qr">QR</div>
+  <div class="qr">{QR_SVG}</div>
   <div class="teks">
     <div class="pemilik">MILIK PEMPROV KALIMANTAN UTARA</div>
     <div class="sek">SMK NEGERI 2 MALINAU</div>
@@ -300,10 +300,13 @@ def label_register():
     <div class="reg">1.3.2.10.01.02.002.000014</div>
     <div class="nm">Laptop · Lenovo ThinkPad E14</div>
   </div></div>"""
+    # QR contoh (di aplikasi, QR berisi tautan acak ke halaman barang)
+    satu = satu.replace("{QR_SVG}", (Path(__file__).parent / "contoh-qr.svg").read_text())
     gaya = """<style>
 .label-grid { display: grid; grid-template-columns: repeat(2, 90mm); gap: 4mm 6mm; justify-content: center; }
 .label { border: 1px solid #000; border-radius: 2mm; height: 32mm; display: grid; grid-template-columns: 26mm 1fr; gap: 2mm; padding: 2mm; }
-.label .qr { border: 1px dashed #777; display: grid; place-items: center; font-size: 8pt; color: #777; }
+.label .qr { display: grid; place-items: center; }
+.label .qr svg { width: 100%; height: 100%; }
 .label .pemilik { font-size: 6.5pt; font-weight: bold; }
 .label .sek { font-size: 8pt; font-weight: bold; margin-bottom: .8mm; }
 .label .reg { font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: 7.6pt; text-align: center; }
