@@ -14,6 +14,7 @@ export default function Home() {
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-5">
         <span className="text-lg font-semibold">Inventaris</span>
         <nav className="flex gap-3 text-sm">
+          <Link href="/panduan" className="rounded-md px-3 py-2 hover:bg-white">Panduan</Link>
           <Link href="/login" className="rounded-md px-3 py-2 hover:bg-white">Masuk</Link>
           <Link href="/daftar" className="rounded-md bg-teal-700 px-3 py-2 font-medium text-white hover:bg-teal-800">Daftarkan sekolah</Link>
         </nav>
@@ -27,6 +28,16 @@ export default function Home() {
           Kode barang mengikuti Permendagri 108/2016, persediaan dicatat perpetual dengan metode FIFO sesuai Permendagri
           47/2021, dan dokumen cetak mengikuti format pengelolaan BMD.
         </p>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/panduan" className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-800">
+            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5v-2Z" /><path d="M8 7h7M8 11h5" /></svg>
+            Baca panduan pengguna
+          </Link>
+          <Link href="/panduan/alur" className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium hover:bg-slate-50">
+            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="3" width="7" height="5" rx="1" /><rect x="14" y="16" width="7" height="5" rx="1" /><path d="M6.5 8v4.5h11V16" /></svg>
+            Lihat flowchart alur
+          </Link>
+        </div>
         <div className="max-w-3xl">
           <ScopeNotice />
         </div>
