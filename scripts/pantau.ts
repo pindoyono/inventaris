@@ -2,7 +2,7 @@
 // hanya saat ada masalah baru, masalah yang berlanjut (diingatkan tiap 6 jam), atau saat pulih.
 // Jalankan: bun --conditions=react-server scripts/pantau.ts [--cek]   (--cek: tampilkan saja, tanpa email)
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { connect } from "node:tls";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -97,6 +97,19 @@ function checkOffsite() {
     add("backup:offsite", `Salinan backup ke luar server tidak berhasil dalam 26 jam terakhir — periksa: journalctl -u backup-offsite`);
 }
 
+/** Backup berbasis cron di luar systemd: periksa umur berkas terbaru di folder tujuannya */
+const FILE_BACKUPS = [{ name: "absensi (cron backup-absensi.sh)", dir: "/backup/absensi", pattern: /\.sql\.gz$/ }];
+function checkFileBackups() {
+  for (const b of FILE_BACKUPS) {
+    let newest = 0;
+    try {
+      for (const f of readdirSync(b.dir)) if (b.pattern.test(f)) newest = Math.max(newest, statSync(`${b.dir}/${f}`).mtimeMs);
+    } catch {}
+    if (!newest || Date.now() - newest > 26 * 3600_000)
+      add(`backup:file:${b.dir}`, `Backup ${b.name} tidak ada berkas baru dalam 26 jam terakhir (${b.dir}; log: /home/ubuntu/backup-absensi.log)`);
+  }
+}
+
 function checkPeriodic() {
   for (const u of PERIODIC) {
     const result = sh("systemctl", ["show", `${u}.service`, "-P", "Result"]);
@@ -162,6 +175,7 @@ await Promise.all([checkSites(), checkCerts(), checkOutbox()]);
 checkServices();
 checkBackups();
 checkPeriodic();
+checkFileBackups();
 checkOffsite();
 checkDisk();
 checkAppErrors();
