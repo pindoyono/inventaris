@@ -7,6 +7,7 @@ export const LOGIN_MESSAGES: Record<string, string> = {
   school_pending: "Pendaftaran sekolah masih menunggu persetujuan pengelola platform.",
   school_rejected: "Pendaftaran sekolah ditolak. Hubungi pengelola platform untuk informasi lebih lanjut.",
   school_suspended: "Akun sekolah sedang dinonaktifkan. Hubungi pengelola platform.",
+  otp_invalid: "Kode verifikasi salah atau sudah dipakai. Masukkan kode terbaru dari aplikasi autentikator, atau kode pemulihan.",
   rate: "Terlalu banyak percobaan masuk dari jaringan ini. Coba lagi beberapa menit lagi.",
   server: "Terjadi kesalahan server. Silakan coba lagi.",
 };

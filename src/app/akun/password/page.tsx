@@ -19,6 +19,7 @@ export default async function GantiPasswordPage() {
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-xs">
         <PasswordForm />
       </div>
+      {!s.mustChangePassword && <p className="text-sm"><Link href="/akun/2fa" className="text-teal-700 hover:underline">Verifikasi dua langkah (2FA) →</Link></p>}
     </main>
   );
 }

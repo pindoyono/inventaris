@@ -28,6 +28,7 @@ export const ACQUISITION_LABEL: Record<string, string> = {
   PRODUKSI: "Produksi/pembuatan sendiri",
   INVENTARISASI: "Hasil inventarisasi",
   LAINNYA: "Perolehan lain yang sah",
+  PENERIMAAN_INTERNAL: "Penerimaan internal Pengguna Barang",
 };
 
 /** Atribut khusus per KIB (mengikuti kolom KIB Permendagri 47/2021) */

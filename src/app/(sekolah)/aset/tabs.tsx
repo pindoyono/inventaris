@@ -4,6 +4,7 @@ const TABS = [
   { href: "/aset", label: "Daftar aset" },
   { href: "/aset/kdp", label: "KDP & renovasi" },
   { href: "/aset/pemanfaatan", label: "Pemanfaatan" },
+  { href: "/aset/pengalihan", label: "Pengalihan" },
 ] as const;
 
 /** Sub-menu Aset */

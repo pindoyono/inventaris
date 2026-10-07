@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   bigserial,
   boolean,
   char,
@@ -42,6 +43,15 @@ function sameSchool<C extends string>(
 ) {
   return foreignKey({ columns: [t.schoolId, t[col]], foreignColumns: [target.schoolId, target.id] }).onDelete(onDelete);
 }
+/** Verifikasi dua langkah (TOTP RFC 6238). Rahasia disimpan terenkripsi (AES-256-GCM, kunci dari AUTH_SECRET). */
+const twoFactor = () => ({
+  totpSecret: text("totp_secret"),
+  totpEnabledAt: timestamp("totp_enabled_at", { withTimezone: true }),
+  /** Langkah waktu terakhir yang dipakai — mencegah kode yang sama dipakai ulang */
+  totpLastStep: bigint("totp_last_step", { mode: "number" }),
+  /** Hash bcrypt kode pemulihan sekali pakai */
+  recoveryCodes: jsonb("recovery_codes").$type<string[]>(),
+});
 const timestamps = () => ({
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -87,6 +97,7 @@ export const utilizationStatus = pgEnum("utilization_status", ["RENCANA", "DISET
 export const constructionKind = pgEnum("construction_kind", ["KDP", "ATR"]);
 export const constructionStatus = pgEnum("construction_status", ["BERJALAN", "DIHENTIKAN", "SELESAI"]);
 export const atrFollowUp = pgEnum("atr_follow_up", ["PEMINDAHTANGANAN", "PENGALIHAN_STATUS"]);
+export const transferStatus = pgEnum("transfer_status", ["DRAF", "DISERAHKAN", "DITERIMA", "DITOLAK", "DIBATALKAN"]);
 /** Jenis dokumen stok persediaan */
 export const stockDocKind = pgEnum("stock_doc_kind", [
   "SALDO_AWAL",
@@ -168,6 +179,7 @@ export const platformAdmins = pgTable("platform_admins", {
   passwordHash: text("password_hash").notNull(),
   failedLogins: integer("failed_logins").notNull().default(0),
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  ...twoFactor(),
   ...timestamps(),
 });
 
@@ -249,6 +261,8 @@ export const schoolSettings = pgTable("school_settings", {
   unitLabel: text("unit_label").notNull().default("Unit"),
   /** Tutup buku: transaksi bertanggal ≤ tanggal ini ditolak */
   booksClosedUntil: date("books_closed_until"),
+  /** Masa manfaat (tahun) per objek kode barang, mis. {"1.3.2.10": 4}; menimpa bawaan. 0 = tidak disusutkan */
+  usefulLife: jsonb("useful_life").$type<Record<string, number>>().notNull().default({}),
   ...timestamps(),
 });
 
@@ -267,6 +281,7 @@ export const users = pgTable(
     failedLogins: integer("failed_logins").notNull().default(0),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    ...twoFactor(),
     ...timestamps(),
   },
   (t) => [uniqueIndex("users_school_username_key").on(t.schoolId, t.username), uniqueIndex("users_school_id_key").on(t.schoolId, t.id)],
@@ -1477,6 +1492,70 @@ export const utilizationLines = pgTable(
     sameSchool(t, "utilizationId", utilizations, "cascade"),
     sameSchool(t, "assetId", assets),
   ],
+);
+
+// ─────────────────────────────────────────────────────────── pengeluaran/penerimaan internal Pengguna Barang
+
+export type TransferItem = {
+  assetId: string; bmdCode: string; kib: string; regNo: number; name: string; brand: string | null; attrs: Record<string, string>;
+  acqDate: string; acqPrice: string; acquisition: string; isIntra: boolean; condition: "BAIK" | "RUSAK_RINGAN" | "RUSAK_BERAT";
+  /** Diisi penerima: aset baru di sekolah penerima */
+  newAssetId?: string;
+};
+
+/**
+ * Penyerahan aset ke Kuasa Pengguna Barang lain (sekolah lain di bawah Pengguna Barang yang sama) atau pihak di luar aplikasi.
+ * Terlihat oleh sekolah pengirim dan penerima (RLS khusus). Barang disalin sebagai snapshot karena penerima tidak bisa membaca aset pengirim.
+ */
+export const transfers = pgTable(
+  "transfers",
+  {
+    id: id(),
+    fromSchoolId: uuid("from_school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+    /** Sekolah penerima yang memakai aplikasi ini; null = penerima di luar aplikasi */
+    toSchoolId: uuid("to_school_id").references(() => schools.id, { onDelete: "set null" }),
+    toName: text("to_name").notNull(),
+    number: varchar("number", { length: 40 }),
+    status: transferStatus("status").notNull().default("DRAF"),
+    date: date("date").notNull(),
+    reason: text("reason").notNull(),
+    /** Surat persetujuan Pengguna Barang (Dinas) */
+    approvalNo: text("approval_no"),
+    approvalDate: date("approval_date"),
+    bastNo: text("bast_no"),
+    bastDate: date("bast_date"),
+    items: jsonb("items").$type<TransferItem[]>().notNull(),
+    note: text("note"),
+    createdBy: uuid("created_by").notNull(),
+    handedBy: uuid("handed_by"),
+    receivedBy: uuid("received_by"),
+    receivedAt: timestamp("received_at", { withTimezone: true }),
+    receiveNote: text("receive_note"),
+    ...timestamps(),
+  },
+  (t) => [
+    index("transfers_from_idx").on(t.fromSchoolId, t.status),
+    index("transfers_to_idx").on(t.toSchoolId, t.status),
+    check("transfers_not_self_check", sql`${t.toSchoolId} is null or ${t.toSchoolId} <> ${t.fromSchoolId}`),
+  ],
+);
+
+// ─────────────────────────────────────────────────────────── lupa kata sandi
+
+/** Token atur ulang kata sandi (tanpa RLS; hanya hash token yang disimpan, sekali pakai, 30 menit) */
+export const passwordResets = pgTable(
+  "password_resets",
+  {
+    id: id(),
+    schoolId: uuid("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
+    tokenHash: char("token_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    ip: text("ip"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("password_resets_token_key").on(t.tokenHash), index("password_resets_user_idx").on(t.userId, t.createdAt)],
 );
 
 /** Tabel ber-school_id yang wajib dilindungi RLS (dipakai migrasi & tes isolasi) */

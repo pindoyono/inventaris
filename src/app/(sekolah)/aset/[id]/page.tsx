@@ -19,6 +19,9 @@ import { RegisterLabel } from "@/components/register-label";
 import { QuickActions } from "./quick-actions";
 import { Classification } from "./classification";
 import { assetHistory, openFindings } from "@/lib/server/asset-changes";
+import { depreciationAt, loadTimelines } from "@/lib/server/bmd-ledger";
+import { semIndex, semLabel } from "@/lib/depreciation-shared";
+import { schoolSettings } from "@/db/schema";
 import { activeUtilizationOf } from "@/lib/server/utilization";
 import { loadAssetFormOptions } from "../data";
 import { constructions } from "@/db/schema";
@@ -58,11 +61,14 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
     const maint = await tx.select().from(maintenances).where(eq(maintenances.assetId, id)).orderBy(desc(maintenances.startDate));
     const [loc] = await tx.select({ name: localBmdCodes.name }).from(localBmdCodes).where(eq(localBmdCodes.code, r.a.bmdCode));
     const hist = await assetHistory(tx, id);
+    const [tl] = await loadTimelines(tx, s.schoolId, id);
+    const [st] = await tx.select({ life: schoolSettings.usefulLife }).from(schoolSettings);
+    const dep = tl ? depreciationAt(tl, semIndex(todayWita()), st?.life ?? {}) : null;
     const findings = await openFindings(tx, id);
     const util = await activeUtilizationOf(tx, id);
     const [con] = await tx.select({ id: constructions.id, kind: constructions.kind, status: constructions.status }).from(constructions).where(eq(constructions.assetId, id));
     const favorites = hasAnyRole(s.roles, ["ADMIN", "PETUGAS"]) ? (await loadAssetFormOptions(tx)).favorites : [];
-    return { ...r, events, roomOpts, maint, parts: await loadRegisterParts(tx, s.schoolId), localName: loc?.name, hist, findings, util, con, favorites };
+    return { ...r, events, roomOpts, maint, parts: await loadRegisterParts(tx, s.schoolId), localName: loc?.name, hist, findings, util, con, favorites, dep };
   });
   if (!data) notFound();
   const { a, parts } = data;
@@ -84,6 +90,7 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
               <dt className="text-slate-500">Kode barang</dt><dd>{a.bmdCode} — {codeName}</dd>
               <dt className="text-slate-500">Golongan</dt><dd>{KIB_LABEL[a.kib]} · {a.isIntra ? "Intrakomptabel" : "Ekstrakomptabel"}</dd>
               <dt className="text-slate-500">Perolehan</dt><dd>{fmtDate(a.acqDate)} · {ACQUISITION_LABEL[a.acquisition] ?? a.acquisition} · Rp{fmtRp(a.acqPrice)}</dd>
+              {data.dep?.depreciable && (<><dt className="text-slate-500">Nilai buku</dt><dd>Rp{fmtRp(data.dep.value - data.dep.acc)} <span className="text-slate-500">· akumulasi penyusutan Rp{fmtRp(data.dep.acc)} s.d. {semLabel(semIndex(todayWita()))} · masa manfaat {data.dep.life} th</span></dd></>)}
               {data.vendor && (<><dt className="text-slate-500">Penyedia</dt><dd>{data.vendor}</dd></>)}
               {a.refNumber && (<><dt className="text-slate-500">No. nota/BAST</dt><dd>{a.refNumber}</dd></>)}
               {data.fs && (<><dt className="text-slate-500">Sumber dana</dt><dd>{data.fs}{data.fc ? ` — ${data.fc}` : ""}</dd></>)}

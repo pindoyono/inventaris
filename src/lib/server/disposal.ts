@@ -104,7 +104,8 @@ export async function actOnDisposal(
       if (!lines.some((l) => ok.has(l.id))) throw new UserError("Pilih barang yang disetujui SK (atau gunakan Tolak bila tidak ada)");
       for (const l of lines.filter((x) => ok.has(x.id))) {
         await tx.update(assets).set({ status: "DIHAPUS", updatedAt: now }).where(eq(assets.id, l.assetId));
-        await tx.insert(assetEvents).values(ev(s, l.assetId, "DIUSULKAN_HAPUS", "DIHAPUS", `Dihapus berdasarkan SK ${a.skNumber.trim()} tanggal ${a.skDate}`));
+        // Tanggal kejadian = tanggal SK, agar mutasi kurang masuk periode yang benar
+        await tx.insert(assetEvents).values({ ...ev(s, l.assetId, "DIUSULKAN_HAPUS", "DIHAPUS", `Dihapus berdasarkan SK ${a.skNumber.trim()} tanggal ${a.skDate}`), date: a.skDate });
       }
       await restore(lines.filter((x) => !ok.has(x.id)), `Tidak termasuk SK ${a.skNumber.trim()}`);
       await tx.update(disposals).set({ status: "SELESAI", skNumber: a.skNumber.trim(), skDate: a.skDate, skFile: a.skFile ?? null, closedAt: now, updatedAt: now }).where(eq(disposals.id, id));

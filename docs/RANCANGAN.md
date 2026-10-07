@@ -388,3 +388,36 @@ Bersih & minimalis (off-white, slate, emerald), mobile-first untuk Petugas (scan
   - **CSP bernonce** di `src/proxy.ts`: `script-src 'nonce-…' 'strict-dynamic'`, `object-src 'none'`, `frame-ancestors 'self'`, ditambah `Permissions-Policy` (kamera hanya untuk situs sendiri). Semua halaman dirender dinamis (`connection()` di root layout) agar Next memasang nonce. `/berkas/*` tetap memakai CSP `sandbox` miliknya sendiri.
   - **Pemantauan**: `scripts/pantau.ts`, dijalankan `inventaris-pantau.timer` tiap 5 menit (user `inventaris` + grup `systemd-journal`). Yang diperiksa: situs HTTPS, layanan systemd, backup (gagal atau >26 jam), disk ≥85%, galat di log Inventaris, email tertahan >1 jam, dan sertifikat yang habis <14 hari. Email ke `ALERT_EMAIL`, atau `PLATFORM_NOTIFY_EMAIL`/`SMTP_USER` bila tidak di-set. Peringatan hanya dikirim saat ada masalah baru, diulang tiap 6 jam bila berlanjut, dan dikirim lagi saat pulih. Status disimpan di `/var/lib/inventaris/pantau.json`. Uji tanpa email: `bun --conditions=react-server scripts/pantau.ts --cek`.
   - **CI**: `.github/workflows/ci.yml` menjalankan typecheck, lint, tes, dan build di PostgreSQL 16 sekali pakai dengan peran `inventaris_owner`/`inventaris_app` (NOBYPASSRLS). `tests/setup.ts` membaca variabel lingkungan dulu, baru `.env.local`.
+- Laporan barang, penyusutan & keamanan akun (7 Okt 2026):
+  - **Buku aset** (`src/lib/server/bmd-ledger.ts`): keadaan tiap aset direkonstruksi dari riwayatnya, sehingga saldo awal + tambah − kurang = saldo akhir. Riwayat yang dipakai:
+    - masuk pembukuan: tanggal perolehan, atau tanggal BAST untuk penerimaan internal;
+    - `asset_value_changes`, reklasifikasi di `asset_changes`;
+    - hapus/pembatalan pada `asset_events`; catatan berawalan "Pengeluaran internal" berarti penyerahan ke Kuasa Pengguna lain.
+  - Penghapusan berdasarkan SK kini dicatat pada tanggal SK.
+  - **Laporan** (Lampiran IV Permendagri 47/2021) di `/laporan/barang`, tersedia bulanan, semesteran, dan tahunan:
+    - IV.L.4.2, IV.L.2.1/2.2/2.3, IV.L.3.2, IV.L.1.1;
+    - IV.H.4/H.5 dan rinciannya;
+    - Daftar Barang Kuasa Pengguna.
+
+    Kolom disusun menurut judul format karena tabel resminya tidak ada di PDF.
+  - **Penyusutan**:
+    - garis lurus per semester; semester perolehan dihitung penuh; nilai sisa 0;
+    - hanya aset intrakomptabel;
+    - koreksi nilai berlaku surut; kapitalisasi disusutkan sepanjang sisa masa manfaat;
+    - masa manfaat bawaan per objek (Bultek SAP 18) bisa ditimpa di `school_settings.useful_life`.
+  - **Pengalihan antar sekolah** (`transfers`):
+    - RLS khusus: pengirim dan penerima bisa membaca/mengubah, hanya pengirim yang bisa membuat;
+    - data barang disimpan sebagai snapshot karena penerima tidak bisa membaca aset pengirim;
+    - penerima mencatat aset dengan nilai dan tanggal perolehan asal serta nomor register baru;
+    - tujuan hanya sekolah aktif dengan kepemilikan dan wilayah yang sama.
+  - **Ekspor KIB lengkap**: `/laporan/ekspor-kib`, berisi per-register, kode lokasi, dan nilai buku. Pengelola platform bisa mengekspor per sekolah di `/platform/statistik`; setiap ekspor dicatat di `platform_logs`.
+  - **Lupa kata sandi**:
+    - `password_resets` tanpa RLS; yang disimpan hanya hash SHA-256 token;
+    - token berlaku 30 menit, sekali pakai, maksimal 3 permintaan per jam;
+    - jawaban ke pengguna selalu netral; rate limit di nginx dan di aplikasi.
+  - **2FA (TOTP RFC 6238)** untuk pengguna sekolah dan pengelola:
+    - rahasia dienkripsi AES-256-GCM dengan kunci turunan AUTH_SECRET;
+    - langkah waktu yang sudah dipakai tidak diterima ulang;
+    - 8 kode pemulihan disimpan sebagai hash bcrypt;
+    - login dua langkah memakai tantangan bertanda tangan HMAC (5 menit) di cookie httpOnly, tanpa menyimpan kata sandi;
+    - galat login (`CredentialsSignin`) tidak lagi dicatat ke log.

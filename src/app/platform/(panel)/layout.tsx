@@ -10,7 +10,8 @@ export default async function PlatformLayout({ children }: LayoutProps<"/platfor
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link href="/platform" className="font-semibold">Inventaris · Pengelola Platform</Link>
           <form action={platformSignOut} className="flex items-center gap-3 text-sm text-slate-600">
-            <span>{admin.adminName}</span>
+            <Link href="/platform/statistik" className="hover:underline">Statistik</Link>
+            <Link href="/platform/2fa" className="hover:underline" title="Verifikasi dua langkah">{admin.adminName}</Link>
             <button className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-50">Keluar</button>
           </form>
         </div>

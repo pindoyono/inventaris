@@ -431,6 +431,32 @@ export const FLOWS: Flow[] = [
     ],
   },
   {
+    id: "pengalihan",
+    title: "Pengalihan aset ke sekolah lain (pengeluaran/penerimaan internal)",
+    desc: "Penyerahan barang antar Kuasa Pengguna Barang di bawah Pengguna Barang (Dinas) yang sama.",
+    topic: "pengalihan",
+    chart: `flowchart TD
+  A["Petugas pengirim: serahkan barang (draf)"] --> B{"Penerima memakai aplikasi ini?"}
+  B -- "Ya" --> C["Pilih sekolah penerima"]
+  B -- "Tidak" --> C2["Isi nama penerima di luar aplikasi"]
+  C --> D["Surat persetujuan Pengguna Barang (Dinas)"]
+  C2 --> D
+  D --> E["BAST: catat nomor & tanggal → Serahkan"]
+  E --> F["Barang keluar dari daftar pengirim (pengeluaran internal)"]
+  F --> G["Cetak BAST"]
+  F --> H{"Sekolah penerima"}
+  H -- "Terima" --> I["Barang tercatat di penerima: nilai & tahun asal, register baru"]
+  H -- "Tolak" --> J["Pengirim membatalkan → barang kembali"]
+  I --> K["Laporan barang: mutasi kurang (pengirim) & tambah (penerima)"]`,
+    links: [
+      { node: "A", label: "Serahkan barang", href: "/aset/pengalihan/baru", who: "Petugas" },
+      { node: "E", label: "Daftar pengalihan", href: "/aset/pengalihan" },
+      { node: "G", label: "Daftar pengalihan (cetak BAST)", href: "/aset/pengalihan" },
+      { node: "H", label: "Pengalihan masuk", href: "/aset/pengalihan", who: "Petugas penerima" },
+      { node: "K", label: "Laporan barang", href: "/laporan/barang" },
+    ],
+  },
+  {
     id: "laporan",
     title: "Laporan, cetak & tutup buku",
     desc: "Semua laporan disusun otomatis dari transaksi; bisa dilihat di layar, diunduh Excel, atau dicetak A4/F4.",
@@ -442,6 +468,9 @@ export const FLOWS: Flow[] = [
   B --> E["Mutasi persediaan"]
   B --> F["Buku penerimaan & pengeluaran"]
   B --> G["Permendagri 7/2024: RKBMD, dokumen kepemilikan, pemantauan"]
+  B --> L["Laporan barang bulanan/semesteran + penyusutan + Daftar Barang Kuasa Pengguna"]
+  B --> X["Ekspor KIB lengkap (rekonsiliasi)"]
+  L --> I
   C --> C2["Status KIR & cetak semua ruangan"]
   C --> H["Unduh Excel / CSV"]
   D --> H
@@ -461,6 +490,8 @@ export const FLOWS: Flow[] = [
       { node: "E", label: "Mutasi persediaan", href: "/laporan/mutasi" },
       { node: "F", label: "Buku persediaan", href: "/laporan/buku" },
       { node: "G", label: "Permendagri 7/2024", href: "/laporan/permendagri-7-2024" },
+      { node: "L", label: "Laporan barang", href: "/laporan/barang" },
+      { node: "X", label: "Ekspor KIB lengkap", href: "/laporan" },
       { node: "K", label: "Tutup buku", href: "/pengaturan/tutup-buku", who: "Admin, Kepala Sekolah" },
     ],
   },

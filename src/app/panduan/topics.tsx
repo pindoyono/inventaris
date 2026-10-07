@@ -29,7 +29,8 @@ export const TOPICS: Topic[] = [
           <li>Masuk selalu memakai tiga isian: NPSN sekolah, nama pengguna, dan kata sandi.</li>
           <li>Setelah 5 kali salah kata sandi, akun dikunci 15 menit.</li>
           <li>Ganti kata sandi lewat nama Anda di pojok kanan atas, atau buka <Go href="/akun/password">Ganti kata sandi</Go>. Pengguna baru wajib mengganti kata sandi saat pertama masuk.</li>
-          <li>Lupa kata sandi? Minta Admin sekolah mengatur ulang dari menu <Go href="/pengguna">Pengguna</Go>.</li>
+          <li>Lupa kata sandi? Klik <Go href="/lupa-sandi">Lupa kata sandi?</Go> di halaman masuk. Tautan atur ulang dikirim ke email akun dan berlaku 30 menit. Akun tanpa email: minta Admin sekolah mengatur ulang dari menu <Go href="/pengguna">Pengguna</Go>.</li>
+          <li><b>Verifikasi dua langkah (2FA)</b>, sangat dianjurkan untuk Admin, Kepala Sekolah, dan Petugas Barang. Aktifkan di <Go href="/akun/2fa">Verifikasi dua langkah</Go> dengan aplikasi autentikator di HP (Google Authenticator, Authy, dll.). Simpan 8 kode pemulihan yang diberikan untuk berjaga-jaga bila HP hilang.</li>
         </List>
 
         <H2 id="tampilan">3. Mengenal tampilan</H2>
@@ -400,6 +401,30 @@ export const TOPICS: Topic[] = [
     ),
   },
   {
+    slug: "pengalihan",
+    title: "Pengalihan aset ke sekolah lain",
+    summary: "Pengeluaran/penerimaan internal Pengguna Barang: menyerahkan barang ke sekolah lain di bawah Dinas yang sama, dengan BAST.",
+    who: "Petugas, Kepala Sekolah",
+    flow: "pengalihan",
+    body: () => (
+      <>
+        <P>Gunakan menu ini bila barang dipindahkan ke Kuasa Pengguna Barang lain, misalnya sekolah lain di bawah Dinas yang sama. Pemindahan seperti ini memerlukan surat persetujuan Pengguna Barang (Dinas).</P>
+        <H2>Sekolah pengirim</H2>
+        <Steps>
+          <li>Buka <Go href="/aset/pengalihan">Aset › Pengalihan</Go> lalu klik <Btn>+ Serahkan barang</Btn>. Pilih sekolah penerima (sekolah aktif di bawah Pengguna Barang yang sama), atau <i>penerima di luar aplikasi</i>. Isi alasan, lalu pilih barangnya.</li>
+          <li>Setelah BAST ditandatangani, isi nomor surat persetujuan Dinas, nomor dan tanggal BAST, lalu klik <Btn>Serahkan</Btn>. Barang keluar dari daftar barang sekolah per tanggal BAST dan masuk laporan sebagai <i>pengeluaran internal</i>.</li>
+          <li>Cetak BAST dari halaman pengalihan.</li>
+        </Steps>
+        <H2>Sekolah penerima (bila memakai aplikasi ini)</H2>
+        <Steps>
+          <li>Penerima mendapat notifikasi, dan penyerahan muncul di daftar <b>Masuk</b> pada <Go href="/aset/pengalihan">Pengalihan</Go>.</li>
+          <li>Klik <Btn>Terima & catat</Btn> dan pilih ruangan. Barang tercatat sebagai aset sekolah penerima dengan nilai dan tahun perolehan asal, nomor register baru, dan cara perolehan <i>penerimaan internal</i>.</li>
+          <li>Bila barang tidak sesuai, klik <Btn>Tolak</Btn>. Pengirim lalu membatalkan pengalihan, dan barang kembali ke daftar pengirim.</li>
+        </Steps>
+      </>
+    ),
+  },
+  {
     slug: "laporan",
     title: "Laporan, cetak & tutup buku",
     summary: "KIR, KIB, mutasi, buku persediaan, format Permendagri 7/2024, ekspor Excel, kertas A4/F4, tutup buku.",
@@ -415,6 +440,8 @@ export const TOPICS: Topic[] = [
             ["Mutasi persediaan", "Saldo awal, masuk, keluar, saldo akhir per NUSP & gudang", <Go key="3" href="/laporan/mutasi">Mutasi</Go>],
             ["Buku persediaan", "Kartu penerimaan & pengeluaran per bulan/semester", <Go key="4" href="/laporan/buku">Buku</Go>],
             ["Permendagri 7/2024", "RKBMD A.1/A.3/A.5, daftar dokumen kepemilikan B.1/B.2, pemantauan C.3–C.29", <Go key="5" href="/laporan/permendagri-7-2024">Buka</Go>],
+            ["Laporan barang kuasa pengguna", "Bulanan/semesteran/tahunan: mutasi tambah & kurang aset tetap (IV.L.2), persediaan (IV.L.1), laporan BMD gabungan (IV.L.4), penyusutan (IV.H), Daftar Barang Kuasa Pengguna", <Go key="6" href="/laporan/barang">Buka</Go>],
+            ["Ekspor KIB lengkap", "Satu berkas Excel: KIB A–F, ATB & persediaan per nomor register dengan nilai buku — untuk rekonsiliasi dengan aplikasi BMD Pemda", <a key="7" href="/laporan/ekspor-kib" className="font-medium text-teal-700 underline">Unduh</a>],
           ]}
         />
         <H2>Format Permendagri 7/2024 yang tersedia</H2>
@@ -429,6 +456,15 @@ export const TOPICS: Topic[] = [
           <li>KIR, KIB, dan mutasi bisa diunduh sebagai Excel (<Btn>Unduh Excel</Btn>) atau CSV.</li>
           <li>Kop, logo, dan tanda tangan diambil dari <Go href="/pengaturan/profil">Profil & kop dokumen</Go>.</li>
         </List>
+        <H2>Laporan barang kuasa pengguna (wajib bulanan & semesteran)</H2>
+        <P>Permendagri 47/2021 Pasal 75–76 mewajibkan sekolah menyerahkan laporan barang ke Dinas: laporan bulanan paling lambat tanggal 10 bulan berikutnya, semester I paling lambat minggu ke-4 Juli, dan semester II paling lambat minggu ke-2 Februari. Di <Go href="/laporan/barang">Laporan barang</Go>, pilih periode (bulan/semester/tahun), lalu cetak atau unduh Excel:</P>
+        <List>
+          <li><b>IV.L.4.2 Laporan BMD</b>: gabungan persediaan, aset tetap per golongan, dan aset tak berwujud, dipisah intra/ekstrakomptabel.</li>
+          <li><b>IV.L.2.2</b> mutasi tambah & kurang menurut objek; <b>IV.L.2.1</b> penjelasan sebabnya (pengadaan, hibah, reklasifikasi, koreksi, kapitalisasi, penghapusan, pengeluaran internal); <b>IV.L.2.3</b> rekap per golongan.</li>
+          <li><b>IV.H</b> akumulasi penyusutan (semesteran/tahunan) per objek, per golongan, dan rincian per barang beserta nilai bukunya.</li>
+          <li><b>Daftar Barang Kuasa Pengguna</b>: seluruh barang per golongan pada akhir periode.</li>
+        </List>
+        <P>Angka laporan disusun otomatis dari riwayat setiap barang, sehingga saldo awal + mutasi tambah − mutasi kurang selalu sama dengan saldo akhir. Masa manfaat penyusutan per jenis barang diatur Admin di <Go href="/pengaturan/kode-bmd">Kode BMD</Go>; sesuaikan dengan Perkada penyusutan daerah Anda.</P>
         <H2>Tutup buku</H2>
         <P>Setelah laporan semester dicetak dan diserahkan, Admin atau Kepala Sekolah menutup periode di <Go href="/pengaturan/tutup-buku">Tutup buku</Go>. Transaksi bertanggal pada periode yang sudah ditutup tidak bisa ditambah atau dibatalkan, sehingga laporan yang sudah diserahkan tidak berubah.</P>
         <H2>Flowchart</H2>

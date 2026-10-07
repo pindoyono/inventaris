@@ -15,6 +15,7 @@ import {
   workflowSchema,
 } from "@/lib/validations";
 import { setupStatus } from "./status";
+import { DEFAULT_USEFUL_LIFE } from "@/lib/depreciation-shared";
 
 export async function saveProfile(_prev: FormState, fd: FormData): Promise<FormState> {
   const raw = formToObject(fd);
@@ -103,4 +104,24 @@ export async function completeSetup(_prev: FormState): Promise<FormState> {
     revalidatePath("/", "layout");
     return { ok: "Penyiapan selesai. Sekolah siap digunakan." };
   });
+}
+
+/** Masa manfaat penyusutan per objek (tahun; 0 = tidak disusutkan). Hanya simpan yang berbeda dari bawaan. */
+export async function saveUsefulLife(_prev: FormState, fd: FormData): Promise<FormState> {
+  const raw = formToObject(fd);
+  const out: Record<string, number> = {};
+  for (const [code, def] of Object.entries(DEFAULT_USEFUL_LIFE)) {
+    const v = (raw[`life_${code}`] ?? "").trim();
+    if (v === "") continue;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 0 || n > 100) return { values: raw, errors: { _form: `Masa manfaat ${code} harus bilangan bulat 0–100` } };
+    if (n !== def) out[code] = n;
+  }
+  const res = await runSchoolAction(["ADMIN"], async (tx, s) => {
+    const [before] = await tx.select({ usefulLife: schoolSettings.usefulLife }).from(schoolSettings);
+    await tx.update(schoolSettings).set({ usefulLife: out, updatedAt: new Date() });
+    await logActivity(tx, s, "UBAH", "masa_manfaat", s.schoolId, before.usefulLife, out);
+    return { ok: "Masa manfaat tersimpan. Laporan penyusutan memakai nilai baru." };
+  });
+  return res.errors ? { ...res, values: raw } : res;
 }

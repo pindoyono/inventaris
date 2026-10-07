@@ -15,6 +15,7 @@ if (!env.TEST_DATABASE_URL || !env.TEST_DATABASE_URL_OWNER) throw new Error("TES
 process.env.DATABASE_URL = env.TEST_DATABASE_URL;
 process.env.TEST_DATABASE_URL_OWNER = env.TEST_DATABASE_URL_OWNER;
 process.env.FILES_DIR = "/tmp/inventaris-test-files";
+process.env.AUTH_SECRET ??= "rahasia-khusus-tes-bukan-produksi-0000000000";
 
 // Modul Next yang hanya berlaku di server React
 mock.module("server-only", () => ({}));

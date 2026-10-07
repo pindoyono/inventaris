@@ -43,6 +43,8 @@ export type NewAssetsInput = {
   /** Nomor register pertama (untuk menyamakan dengan register Dinas); kosong = lanjut dari terakhir */
   startRegNo: number | null;
   procurementId?: string | null;
+  /** Tanggal masuk pembukuan sekolah ini (bawaan = tanggal perolehan); mis. tanggal BAST penerimaan internal */
+  entryDate?: string;
 };
 
 /** Catat sejumlah unit aset sekaligus; tiap unit mendapat nomor register berurutan. */
@@ -70,7 +72,7 @@ export async function createAssets(tx: Tx, s: SchoolSession, input: NewAssetsInp
     throw new UserError(`Nomor register sudah dipakai untuk kode ini: ${taken.map((t) => String(t.regNo).padStart(6, "0")).slice(0, 5).join(", ")}`);
 
   const batchId = crypto.randomUUID();
-  const { qty: _q, startRegNo: _s, ...common } = input;
+  const { qty: _q, startRegNo: _s, entryDate, ...common } = input;
   const rows = await tx
     .insert(assets)
     .values(regNos.map((regNo) => ({ ...common, schoolId: s.schoolId, kib, regNo, isIntra, acqPrice: toDec(price), batchId, createdBy: s.userId })))
@@ -82,7 +84,7 @@ export async function createAssets(tx: Tx, s: SchoolSession, input: NewAssetsInp
       schoolId: s.schoolId,
       assetId: r.id,
       kind: "DICATAT" as const,
-      date: input.acqDate,
+      date: entryDate ?? input.acqDate,
       toRoomId: input.roomId,
       toCondition: input.condition,
       toStatus: "DIGUNAKAN" as const,

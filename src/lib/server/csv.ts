@@ -26,14 +26,10 @@ function centsToId(v: bigint) {
   return `${neg ? "-" : ""}${a / 100n}${frac ? "," + String(frac).padStart(2, "0").replace(/0$/, "") : ""}`;
 }
 
-type Cell = string | number | bigint | null | undefined;
+export type Cell = string | number | bigint | null | undefined;
 
-/** Ekspor tabel sebagai .xlsx (format=xlsx) atau CSV. bigint = nilai perseratus (Rp/jumlah). */
-export async function tableResponse(filename: string, rows: Cell[][], format: string | null) {
-  if (format !== "xlsx") return csvResponse(filename, rows);
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "Inventaris";
-  const ws = wb.addWorksheet("Data");
+function addSheet(wb: ExcelJS.Workbook, name: string, rows: Cell[][]) {
+  const ws = wb.addWorksheet(name.replace(/[\\/?*[\]:]/g, " ").slice(0, 31));
   // baris judul = baris pertama yang berisi lebih dari satu sel
   const headerAt = rows.findIndex((r) => r.filter((c) => c !== "" && c !== null && c !== undefined).length > 1);
   rows.forEach((r, i) => {
@@ -48,12 +44,32 @@ export async function tableResponse(filename: string, rows: Cell[][], format: st
     col.eachCell?.({ includeEmpty: false }, (cell) => { w = Math.max(w, Math.min(50, String(cell.value ?? "").length + 2)); });
     col.width = w;
   });
+}
+
+async function xlsxResponse(filename: string, wb: ExcelJS.Workbook) {
   const buf = Buffer.from(await wb.xlsx.writeBuffer());
   return new Response(new Uint8Array(buf), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${filename.replace(/\.csv$/, ".xlsx").replace(/[^\w.-]/g, "_")}"`,
+      "Content-Disposition": `attachment; filename="${filename.replace(/\.(csv|xlsx)$/, "").replace(/[^\w.-]/g, "_")}.xlsx"`,
       "Cache-Control": "private, no-store",
     },
   });
+}
+
+/** Ekspor tabel sebagai .xlsx (format=xlsx) atau CSV. bigint = nilai perseratus (Rp/jumlah). */
+export async function tableResponse(filename: string, rows: Cell[][], format: string | null) {
+  if (format !== "xlsx") return csvResponse(filename, rows);
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Inventaris";
+  addSheet(wb, "Data", rows);
+  return xlsxResponse(filename, wb);
+}
+
+/** Satu berkas .xlsx berisi beberapa sheet */
+export async function workbookResponse(filename: string, sheets: { name: string; rows: Cell[][] }[]) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Inventaris";
+  for (const sh of sheets) addSheet(wb, sh.name, sh.rows);
+  return xlsxResponse(filename, wb);
 }
