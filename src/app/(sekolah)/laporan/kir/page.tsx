@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { kodeBarang } from "@/lib/assets-shared";
 import { asc } from "drizzle-orm";
 import { rooms } from "@/db/schema";
 import { withSchool } from "@/lib/tenant";
@@ -67,7 +68,7 @@ export default async function KirPage({ searchParams }: PageProps<"/laporan/kir"
                 {k.rows.map((r, i) => (
                   <tr key={i}>
                     <td className={`${td} text-center`}>{i + 1}</td>
-                    <td className={`${td} font-mono text-xs whitespace-nowrap`}>{r.bmdCode}</td>
+                    <td className={`${td} font-mono text-xs whitespace-nowrap`}>{kodeBarang(r.bmdCode)}</td>
                     <td className={`${td} font-mono text-xs`}>{r.regNos}</td>
                     <td className={td}>{r.name}{r.codeName && r.codeName.toLowerCase() !== r.name.toLowerCase() && <span className="block text-xs text-slate-500">{r.codeName}</span>}</td>
                     <td className={td}>{r.brand ?? "-"}</td>

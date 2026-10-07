@@ -4,7 +4,7 @@ import { withSchool } from "@/lib/tenant";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { loadRegisterParts } from "@/lib/server/register";
 import { kibData } from "@/lib/server/reports";
-import { ACQUISITION_LABEL, KIB_ATTRS, KIB_LABEL } from "@/lib/assets-shared";
+import { ACQUISITION_LABEL, KIB_ATTRS, KIB_LABEL, kodeBarang } from "@/lib/assets-shared";
 import { fmtRp } from "@/lib/decimal";
 import { ReportHeader, td, th } from "../shared";
 import { str } from "../params";
@@ -44,7 +44,7 @@ export default async function KibPage({ searchParams }: PageProps<"/laporan/kib"
             {kib.rows.map((r, i) => (
               <tr key={i}>
                 <td className={`${td} text-center`}>{i + 1}</td>
-                <td className={`${td} font-mono text-xs whitespace-nowrap`}>{r.bmdCode}</td>
+                <td className={`${td} font-mono text-xs whitespace-nowrap`}>{kodeBarang(r.bmdCode)}</td>
                 <td className={td}>{r.codeName}{r.name.toLowerCase() !== r.codeName.toLowerCase() && <span className="block text-xs text-slate-500">{r.name}</span>}</td>
                 <td className={`${td} font-mono text-xs`}>{r.regNos}</td>
                 <td className={td}>{r.brand ?? "-"}</td>

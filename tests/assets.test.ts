@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { asc, eq } from "drizzle-orm";
-import { assetEvents, assets, qrTokens, rooms, schoolSettings, schools, users } from "@/db/schema";
+import { assetEvents, assets, qrTokens, rooms, schools, users } from "@/db/schema";
 import { db } from "@/db";
 import { withSchool } from "@/lib/tenant-core";
 import { createAssets, moveAssets, setCondition, type NewAssetsInput } from "@/lib/server/assets";
 import { UserError } from "@/lib/server/errors";
 import { pgCode } from "@/lib/server/activity";
-import { isIntraFor, registerCode } from "@/lib/assets-shared";
+import { isIntraFor, kodeBarang, kodeBarangInternal, registerCode } from "@/lib/assets-shared";
 import type { SchoolSession } from "@/lib/tenant";
 import { makeSchool, resetTestData } from "./helpers";
 
@@ -68,14 +68,30 @@ describe("pencatatan aset per unit", () => {
     expect(await err(tx((t) => createAssets(t, sess, base({ acqDate: "2099-01-01" }))))).toContain("masa depan");
   });
 
-  test("kode register dua baris; SEMENTARA bila kode pengguna kosong", async () => {
+  test("kode register format SIMDA = label Dinas; UPB dari sumber dana; SEMENTARA bila kode lokasi kosong", async () => {
     const [sc] = await db.select().from(schools).where(eq(schools.id, S));
-    const [st] = await tx((t) => t.select().from(schoolSettings));
-    const parts = { ownershipCode: sc.ownershipCode, provinceCode: sc.provinceCode, regencyCode: sc.regencyCode, kodePengguna: st.kodePengguna, kodeKuasaPengguna: st.kodeKuasaPengguna, kodeSubKuasa: st.kodeSubKuasa };
-    const a = { isIntra: true, acqDate: "2026-02-10", bmdCode: "1.3.2.10.01.02.002", regNo: 70 };
-    expect(registerCode(parts, a)).toEqual({ top: "11.01.65.00.??????.?????.00000.2026", bottom: "1.3.2.10.01.02.002.000070", provisional: true });
-    expect(registerCode({ ...parts, kodePengguna: "010101", kodeKuasaPengguna: "00103" }, { ...a, isIntra: false }).top).toBe("11.02.65.00.010101.00103.00000.2026");
-    expect(registerCode({ ...parts, ownershipCode: "12" }, a).top.startsWith("12.01.65.02.")).toBe(true);
+    const kosong = { ownershipCode: sc.ownershipCode, provinceCode: sc.provinceCode, regencyCode: sc.regencyCode, kodeProvinsi: null, kodeKab: null, kodeBidang: null, kodeUnit: null, kodeSubUnit: null, kodeUpb: "01", upbByFunding: {} };
+    expect(registerCode(kosong, { isIntra: true, acqDate: "2026-02-10", bmdCode: "1.3.2.10.01.02.002", regNo: 70 })).toEqual({ top: "11.01.65.00.??.??.???.01.2026", bottom: "1.3.2.10.001.002.002.000070", provisional: true });
+    // Contoh nyata label SIMDA BMD SMKN 2 Malinau (Bidang 8, Unit 1, Sub Unit 58, UPB 2 = Bosnas)
+    const p = { ...kosong, kodeProvinsi: "34", kodeBidang: "08", kodeUnit: "01", kodeSubUnit: "058", upbByFunding: { bosnas: "02", dak: "06" } };
+    expect(registerCode(p, { isIntra: true, acqDate: "2026-03-01", bmdCode: "1.3.2.05.02.07.001", regNo: 1, fundingSourceId: "bosnas" })).toEqual({ top: "11.01.34.00.08.01.058.02.2026", bottom: "1.3.2.05.002.007.001.000001", provisional: false });
+    expect(registerCode(p, { isIntra: false, acqDate: "2026-03-01", bmdCode: "1.3.2.06.01.01.036", regNo: 13, fundingSourceId: "bosnas" })).toEqual({ top: "11.02.34.00.08.01.058.02.2026", bottom: "1.3.2.06.001.001.036.000013", provisional: false });
+    expect(registerCode(p, { isIntra: true, acqDate: "2026-03-01", bmdCode: "1.3.2.08.03.04.034", regNo: 2, fundingSourceId: "bosnas" }).bottom).toBe("1.3.2.08.003.004.034.000002");
+    // DAK → UPB 06; dana lain/tanpa sumber dana → UPB bawaan 01
+    expect(registerCode(p, { isIntra: true, acqDate: "2025-01-01", bmdCode: "1.3.2.05.02.07.001", regNo: 3, fundingSourceId: "dak" }).top).toBe("11.01.34.00.08.01.058.06.2025");
+    expect(registerCode(p, { isIntra: true, acqDate: "2025-01-01", bmdCode: "1.3.2.05.02.07.001", regNo: 3, fundingSourceId: "komite" }).top).toBe("11.01.34.00.08.01.058.01.2025");
+    expect(registerCode(p, { isIntra: true, acqDate: "2025-01-01", bmdCode: "1.3.2.05.02.07.001", regNo: 3 }).top).toBe("11.01.34.00.08.01.058.01.2025");
+    // aset milik kab/kota
+    expect(registerCode({ ...p, ownershipCode: "12" }, { isIntra: true, acqDate: "2026-01-01", bmdCode: "1.3.2.05.02.07.001", regNo: 1 }).top.startsWith("12.01.34.02.")).toBe(true);
+  });
+
+  test("kode barang: tampilan SIMDA 3 digit ↔ referensi 2 digit", () => {
+    expect(kodeBarang("1.3.2.05.02.07.001")).toBe("1.3.2.05.002.007.001");
+    expect(kodeBarangInternal("1.3.2.05.002.007.001")).toBe("1.3.2.05.02.07.001");
+    expect(kodeBarangInternal("1.3.2.05.02.07.001")).toBe("1.3.2.05.02.07.001");
+    expect(kodeBarangInternal(" 1.3.2.08.003.004.034 ")).toBe("1.3.2.08.03.04.034");
+    expect(kodeBarang("1.1.7.01.03.02.001")).toBe("1.1.7.01.03.02.001"); // persediaan tidak diubah
+    expect(kodeBarang("1.3.2.05")).toBe("1.3.2.05");
   });
 });
 
@@ -92,5 +108,15 @@ describe("pindah & kondisi", () => {
   test("riwayat tidak bisa diubah/dihapus", async () => {
     expect(await err(tx((t) => t.update(assetEvents).set({ note: "x" })))).toBe("pg:42501");
     expect(await err(tx((t) => t.delete(assetEvents)))).toBe("pg:42501");
+  });
+});
+
+describe("pengaturan kode lokasi SIMDA", () => {
+  test("angka tanpa nol depan dilengkapi; kosong → null; UPB bawaan 01", async () => {
+    const { bmdSettingsSchema } = await import("@/lib/validations");
+    const d = bmdSettingsSchema.parse({ kodeProvinsi: "34", kodeKab: "", kodeBidang: "8", kodeUnit: "1", kodeSubUnit: "58", kodeUpb: "", capDefault: "2.000.000", labelQr: "on" });
+    expect([d.kodeProvinsi, d.kodeKab, d.kodeBidang, d.kodeUnit, d.kodeSubUnit, d.kodeUpb, d.labelQr, d.labelLogo]).toEqual(["34", null, "08", "01", "058", "01", true, false]);
+    expect(bmdSettingsSchema.safeParse({ kodeSubUnit: "1234", capDefault: "1" }).success).toBe(false);
+    expect(bmdSettingsSchema.safeParse({ kodeBidang: "x", capDefault: "1" }).success).toBe(false);
   });
 });

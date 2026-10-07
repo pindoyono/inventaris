@@ -6,13 +6,13 @@ import { notFound } from "next/navigation";
 import { alias } from "drizzle-orm/pg-core";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { assetEvents, assets, bmdCodes, fundingComponents, fundingSources, localBmdCodes, maintenances, rooms, units, vendors } from "@/db/schema";
+import { assetEvents, assets, bmdCodes, fundingComponents, fundingSources, localBmdCodes, maintenances, rooms, units, vendors, regions } from "@/db/schema";
 import { withSchool } from "@/lib/tenant";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { hasAnyRole } from "@/lib/roles";
 import { todayWita } from "@/lib/server/ledger";
 import { loadRegisterParts, qrSvg } from "@/lib/server/register";
-import { ACQUISITION_LABEL, CONDITION_LABEL, KIB_ATTRS, KIB_LABEL, registerCode, STATUS_LABEL } from "@/lib/assets-shared";
+import { ACQUISITION_LABEL, CONDITION_LABEL, KIB_ATTRS, KIB_LABEL, kodeBarang, registerCode, STATUS_LABEL } from "@/lib/assets-shared";
 import { fmtRp } from "@/lib/decimal";
 import { PageTitle } from "@/components/ui";
 import { RegisterLabel } from "@/components/register-label";
@@ -62,13 +62,17 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
     const [loc] = await tx.select({ name: localBmdCodes.name }).from(localBmdCodes).where(eq(localBmdCodes.code, r.a.bmdCode));
     const hist = await assetHistory(tx, id);
     const [tl] = await loadTimelines(tx, s.schoolId, id);
-    const [st] = await tx.select({ life: schoolSettings.usefulLife }).from(schoolSettings);
+    const [st] = await tx.select({ life: schoolSettings.usefulLife, qr: schoolSettings.labelQr, showLogo: schoolSettings.labelLogo, logo: schoolSettings.logoPemdaFile }).from(schoolSettings);
+    const parts = await loadRegisterParts(tx, s.schoolId);
+    const [prov] = await db.select({ name: regions.name }).from(regions).where(eq(regions.code, parts.provinceCode));
+    // Sama dengan footer lembar label (/cetak/label)
+    const labelFooter = parts.ownershipCode === "11" ? `PEMERINTAH PROVINSI ${(prov?.name ?? "").toUpperCase()}` : (parts.pemdaName ?? "PEMERINTAH DAERAH").toUpperCase();
     const dep = tl ? depreciationAt(tl, semIndex(todayWita()), st?.life ?? {}) : null;
     const findings = await openFindings(tx, id);
     const util = await activeUtilizationOf(tx, id);
     const [con] = await tx.select({ id: constructions.id, kind: constructions.kind, status: constructions.status }).from(constructions).where(eq(constructions.assetId, id));
     const favorites = hasAnyRole(s.roles, ["ADMIN", "PETUGAS"]) ? (await loadAssetFormOptions(tx)).favorites : [];
-    return { ...r, events, roomOpts, maint, parts: await loadRegisterParts(tx, s.schoolId), localName: loc?.name, hist, findings, util, con, favorites, dep };
+    return { ...r, events, roomOpts, maint, parts, localName: loc?.name, hist, findings, util, con, favorites, dep, label: { qr: st.qr, showLogo: st.showLogo, logo: st.logo }, labelFooter };
   });
   if (!data) notFound();
   const { a, parts } = data;
@@ -87,7 +91,7 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
             <dl className="grid grid-cols-[11rem_1fr] gap-y-1.5">
               <dt className="text-slate-500">Kode register</dt>
               <dd className="font-mono">{reg.top}<br /><strong>{reg.bottom}</strong>{reg.provisional && <span className="ml-2 rounded bg-red-100 px-1.5 font-sans text-xs text-red-700">SEMENTARA</span>}</dd>
-              <dt className="text-slate-500">Kode barang</dt><dd>{a.bmdCode} — {codeName}</dd>
+              <dt className="text-slate-500">Kode barang</dt><dd><span className="font-mono">{kodeBarang(a.bmdCode)}</span> — {codeName}</dd>
               <dt className="text-slate-500">Golongan</dt><dd>{KIB_LABEL[a.kib]} · {a.isIntra ? "Intrakomptabel" : "Ekstrakomptabel"}</dd>
               <dt className="text-slate-500">Perolehan</dt><dd>{fmtDate(a.acqDate)} · {ACQUISITION_LABEL[a.acquisition] ?? a.acquisition} · Rp{fmtRp(a.acqPrice)}</dd>
               {data.dep?.depreciable && (<><dt className="text-slate-500">Nilai buku</dt><dd>Rp{fmtRp(data.dep.value - data.dep.acc)} <span className="text-slate-500">· akumulasi penyusutan Rp{fmtRp(data.dep.acc)} s.d. {semLabel(semIndex(todayWita()))} · masa manfaat {data.dep.life} th</span></dd></>)}
@@ -174,7 +178,7 @@ export default async function AsetDetailPage({ params }: PageProps<"/aset/[id]">
         <div className="space-y-4">
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold">Pratinjau label</h2>
-            <RegisterLabel pemda={parts.pemdaName} school={parts.schoolName} top={reg.top} bottom={reg.bottom} name={a.name} provisional={reg.provisional} qr={qr} />
+            <RegisterLabel footer={data.labelFooter} top={reg.top} bottom={reg.bottom} name={a.name} provisional={reg.provisional} qr={qr} logo={data.label.logo} showQr={data.label.qr} showLogo={data.label.showLogo} />
             <p className="mt-2 text-xs text-slate-500">QR membuka halaman barang ini.</p>
             {canEdit && <a href={`/cetak/label?id=${a.id}`} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-medium text-teal-700 hover:underline">Cetak label</a>}
           </section>

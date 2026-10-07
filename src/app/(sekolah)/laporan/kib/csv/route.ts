@@ -1,7 +1,7 @@
 import { AccessError, requireSchoolUser, withSchool } from "@/lib/tenant";
 import { kibData } from "@/lib/server/reports";
 import { tableResponse } from "@/lib/server/csv";
-import { ACQUISITION_LABEL, KIB_ATTRS, KIB_LABEL } from "@/lib/assets-shared";
+import { ACQUISITION_LABEL, KIB_ATTRS, KIB_LABEL, kodeBarang } from "@/lib/assets-shared";
 
 export async function GET(req: Request) {
   let s;
@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   return tableResponse(`KIB ${gol}${ekstra ? " (dengan ekstrakomptabel)" : ""}.csv`, [
     [KIB_LABEL[gol]],
     ["No", "Kode Barang", "Jenis/Nama Barang", "Nama di sekolah", "Nomor Register", "Merk/Tipe", ...attrs.map((a) => a.label), "Tahun", "Asal-usul", "Jumlah", "Harga (Rp)", "Intra/Ekstra", "Keterangan"],
-    ...kib.rows.map((r, i) => [i + 1, r.bmdCode, r.codeName, r.name, r.regNos, r.brand ?? "", ...attrs.map((a) => r.attrs[a.key] ?? ""), r.year, ACQUISITION_LABEL[r.acquisition] ?? r.acquisition, r.qty, r.total, r.ekstra ? "Ekstrakomptabel" : "Intrakomptabel", r.note ?? ""]),
+    ...kib.rows.map((r, i) => [i + 1, kodeBarang(r.bmdCode), r.codeName, r.name, r.regNos, r.brand ?? "", ...attrs.map((a) => r.attrs[a.key] ?? ""), r.year, ACQUISITION_LABEL[r.acquisition] ?? r.acquisition, r.qty, r.total, r.ekstra ? "Ekstrakomptabel" : "Intrakomptabel", r.note ?? ""]),
     ["", "", "Jumlah", "", "", "", ...attrs.map(() => ""), "", "", kib.units, kib.total],
   ], new URL(req.url).searchParams.get("format"));
 }

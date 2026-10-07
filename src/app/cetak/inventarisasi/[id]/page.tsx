@@ -5,7 +5,7 @@ import { assetInventories, assetInventoryLines, assets, rooms } from "@/db/schem
 import { withSchool } from "@/lib/tenant";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { loadPrintContext } from "@/lib/server/print";
-import { CONDITION_LABEL } from "@/lib/assets-shared";
+import { CONDITION_LABEL, kodeBarang } from "@/lib/assets-shared";
 import { fmtRp } from "@/lib/decimal";
 import { tanggalBA } from "@/lib/terbilang";
 import { Halaman, Identitas, Judul, Kop, KodeLokasi, kepsekCol, pengurusCol, Tabel, Ttd } from "@/components/cetak/print";
@@ -40,7 +40,7 @@ export default async function CetakInventarisasi({ params }: PageProps<"/cetak/i
         <tr><th rowSpan={2}>No</th><th rowSpan={2}>Kode Barang</th><th rowSpan={2}>No. Register</th><th rowSpan={2}>Nama / Merk</th><th rowSpan={2}>Tahun</th><th rowSpan={2}>Harga (Rp)</th><th colSpan={2}>Kondisi</th><th rowSpan={2}>Hasil</th><th rowSpan={2}>Keterangan</th></tr>
         <tr><th>Catatan</th><th>Fisik</th></tr></>}>
         {reg.map((x, i) => (
-          <tr key={x.l.id}><td className="tengah">{i + 1}</td><td className="kode">{x.a!.bmdCode}</td><td className="kode">{String(x.a!.regNo).padStart(6, "0")}</td><td>{x.a!.name}{x.a!.brand ? ` · ${x.a!.brand}` : ""}</td>
+          <tr key={x.l.id}><td className="tengah">{i + 1}</td><td className="kode">{kodeBarang(x.a!.bmdCode)}</td><td className="kode">{String(x.a!.regNo).padStart(6, "0")}</td><td>{x.a!.name}{x.a!.brand ? ` · ${x.a!.brand}` : ""}</td>
             <td className="tengah">{x.a!.acqDate.slice(0, 4)}</td><td className="angka">{fmtRp(x.a!.acqPrice)}</td>
             <td className="tengah">{x.l.conditionRecorded ? CONDITION_LABEL[x.l.conditionRecorded] : "-"}</td><td className="tengah">{x.l.found && x.l.conditionFound ? CONDITION_LABEL[x.l.conditionFound] : "-"}</td>
             <td className="tengah">{hasil(x)}</td><td>{x.l.note ?? ""}</td></tr>

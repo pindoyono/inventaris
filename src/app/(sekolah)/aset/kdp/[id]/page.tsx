@@ -10,6 +10,7 @@ import { todayWita } from "@/lib/server/ledger";
 import { fmtRp, parseDec } from "@/lib/decimal";
 import { ATR_FOLLOW_UP_LABEL, CONSTRUCTION_KIND_LABEL, CONSTRUCTION_STATUS_LABEL } from "@/lib/construction-shared";
 import { PageTitle } from "@/components/ui";
+import { kodeBarang } from "@/lib/assets-shared";
 import { Attachments } from "@/components/lampiran/attachments";
 import { loadAssetFormOptions } from "../../data";
 import { ConstructionActions } from "./actions-panel";
@@ -48,7 +49,7 @@ export default async function KdpDetailPage({ params }: PageProps<"/aset/kdp/[id
           <section className="rounded-lg border border-slate-200 bg-white p-4 text-sm">
             <dl className="grid grid-cols-[11rem_1fr] gap-y-1.5">
               <dt className="text-slate-500">Status</dt><dd>{CONSTRUCTION_STATUS_LABEL[c.status]} · progres {c.progress}%{c.stopReason ? ` · ${c.stopReason}` : ""}</dd>
-              <dt className="text-slate-500">Aset</dt><dd><Link href={`/aset/${a.id}`} className="text-teal-700 hover:underline"><span className="font-mono">{a.bmdCode}.{String(a.regNo).padStart(6, "0")}</span></Link>{c.status === "SELESAI" && c.kind === "KDP" && " (sudah direklasifikasi)"}</dd>
+              <dt className="text-slate-500">Aset</dt><dd><Link href={`/aset/${a.id}`} className="text-teal-700 hover:underline"><span className="font-mono">{kodeBarang(a.bmdCode)}.{String(a.regNo).padStart(6, "0")}</span></Link>{c.status === "SELESAI" && c.kind === "KDP" && " (sudah direklasifikasi)"}</dd>
               {c.ownerName && (<><dt className="text-slate-500">Pemilik aset</dt><dd>{c.ownerName}</dd></>)}
               <dt className="text-slate-500">Kontrak</dt><dd>{c.contractNo ?? "—"}{c.contractDate ? ` tgl ${fmtDate(c.contractDate)}` : ""} · Rp{fmtRp(c.contractValue)}</dd>
               {data.vendor && (<><dt className="text-slate-500">Penyedia</dt><dd>{data.vendor}</dd></>)}

@@ -7,7 +7,7 @@ import { assets, bmdCodes, buildings, fundingSources, localBmdCodes, rooms, supp
 import { createAssets } from "@/lib/server/assets";
 import { postDoc, todayWita } from "@/lib/server/ledger";
 import { createSupplyItem, saveDraftDoc } from "@/lib/server/supply";
-import { kibOfCode } from "@/lib/assets-shared";
+import { kibOfCode, kodeBarangInternal } from "@/lib/assets-shared";
 import { normalizeIdNumber, parseDec, toDec } from "@/lib/decimal";
 import { ROLES, ROLE_LABEL, type Role } from "@/lib/roles";
 import type { SchoolSession } from "@/lib/tenant";
@@ -89,6 +89,8 @@ export async function validateRows(tx: Tx, kind: ImportKind, input: { row: numbe
   }
 
   if (kind === "aset") {
+    // Terima kode format SIMDA (rincian/sub rincian 3 digit) maupun Permendagri 108 (2 digit)
+    for (const r of out) if (r.data.kode) r.data.kode = kodeBarangInternal(r.data.kode);
     const codes = [...new Set(out.map((r) => (r.data.kode ?? "").trim()).filter(Boolean))];
     const off = codes.length ? await db.select().from(bmdCodes).where(inArray(bmdCodes.code, codes)) : [];
     const loc = codes.length ? await tx.select().from(localBmdCodes).where(inArray(localBmdCodes.code, codes)) : [];

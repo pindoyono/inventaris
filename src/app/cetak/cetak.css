@@ -102,3 +102,21 @@ table.data { table-layout: auto; }
 html[data-kertas="f4"] .a4-potret { width: 215mm; min-height: 330mm; }
 html[data-kertas="f4"] .a4-lanskap { width: 330mm; min-height: 215mm; }
 @media print { html[data-kertas="f4"] .halaman { min-height: auto; } }
+
+/* Label kode register gaya SIMDA BMD (label Dinas) + QR opsional */
+.label-sel { height: 32mm; display: flex; flex-direction: column; break-inside: avoid; overflow: hidden; }
+.label-dinas { border: .35mm solid #000; height: 27mm; display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr 5.5mm; grid-template-areas: "atas" "bawah" "kaki"; }
+.label-dinas.ada-logo { grid-template-columns: 18mm 1fr; grid-template-areas: "logo atas" "logo bawah" "kaki kaki"; }
+.label-dinas.ada-qr { grid-template-columns: 1fr 23mm; grid-template-areas: "atas qr" "bawah qr" "kaki qr"; }
+.label-dinas.ada-logo.ada-qr { grid-template-columns: 17mm 1fr 23mm; grid-template-areas: "logo atas qr" "logo bawah qr" "kaki kaki qr"; }
+.label-dinas .logo { grid-area: logo; display: grid; place-items: center; border-right: .3mm solid #000; padding: 1mm; }
+.label-dinas .logo img { max-width: 15mm; max-height: 17mm; object-fit: contain; }
+.label-dinas .logo span { font-size: 5.5pt; color: #777; text-align: center; }
+.label-dinas .kode { display: flex; align-items: center; justify-content: center; font-family: Arial, Helvetica, sans-serif; font-weight: 700; font-size: 8.3pt; letter-spacing: -.1pt; white-space: nowrap; padding: 0 1mm; }
+.label-dinas .kode.atas { grid-area: atas; border-bottom: .3mm solid #000; }
+.label-dinas .kode.bawah { grid-area: bawah; }
+.label-dinas .kaki { grid-area: kaki; border-top: .3mm solid #000; display: flex; align-items: center; justify-content: center; font-family: Arial, Helvetica, sans-serif; font-weight: 700; font-size: 6.2pt; white-space: nowrap; }
+.label-dinas .qr { grid-area: qr; border-left: .3mm solid #000; display: grid; place-items: center; padding: 1mm; }
+.label-dinas .qr svg { width: 21mm; height: 21mm; }
+.label-sel .nm { font-size: 6.3pt; margin-top: .6mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.label-sel .sm { color: #b91c1c; }

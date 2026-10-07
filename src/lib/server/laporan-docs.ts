@@ -3,6 +3,7 @@ import type { Tx } from "@/db";
 import { daftarBarang, laporanAset, laporanBmd, laporanPersediaan, laporanPenyusutan, type LapRow } from "@/lib/server/laporan-barang";
 import { CAUSE, type NV } from "@/lib/server/bmd-ledger";
 import type { Period } from "@/lib/period";
+import { kodeBarang } from "@/lib/assets-shared";
 
 export type Cell = string | number | bigint | null;
 export type Col = { label: string; group?: string; kind?: "text" | "num" | "money" | "code" };
@@ -95,7 +96,7 @@ export async function buildDoc(tx: Tx, schoolId: string, p: Period, format: Form
       return {
         ...base, title: f.title,
         tables: [{ cols: [{ label: "No", kind: "num" }, { label: "Kode Barang", kind: "code" }, { label: "Reg.", kind: "code" }, { label: "Nama Barang" }, { label: "Tgl Perolehan", kind: "code" }, { label: "Masa Manfaat (th)", kind: "num" }, money("Nilai Perolehan"), money("Akumulasi s.d. Periode Lalu"), money("Beban Periode Ini"), money("Akumulasi s.d. Akhir Periode"), money("Nilai Buku")],
-          rows: d.detail.map((r, i) => [i + 1, r.code, String(r.regNo).padStart(6, "0"), r.name, r.acqDate, r.life || "—", r.value, r.accPrev, r.expense, r.acc, r.book]),
+          rows: d.detail.map((r, i) => [i + 1, kodeBarang(r.code), String(r.regNo).padStart(6, "0"), r.name, r.acqDate, r.life || "—", r.value, r.accPrev, r.expense, r.acc, r.book]),
           foot: ["", "", "", "Jumlah", "", "", t.value, t.accPrev, t.expense, t.acc, t.book] }],
         note: penyusutanNote,
       };
@@ -119,7 +120,7 @@ export async function buildDoc(tx: Tx, schoolId: string, p: Period, format: Form
       ...groups.map((g) => ({
         caption: `${g.code} — ${g.name}`,
         cols: [{ label: "No", kind: "num" as const }, { label: "Kode Barang", kind: "code" as const }, { label: "Nama Barang" }, { label: "Merk/Tipe" }, { label: "Nomor Register", kind: "code" as const }, { label: "Tahun", kind: "code" as const }, { label: "Jumlah", kind: "num" as const }, { label: "Nilai Perolehan (Rp)", kind: "money" as const }, { label: "Intra/Ekstra" }, { label: "Lokasi" }],
-        rows: g.rows.map((r, i) => [i + 1, r.code, r.name, r.brand ?? "-", r.regNos, r.year, r.qty, r.value, r.intra ? "Intra" : "Ekstra", r.rooms || "-"]),
+        rows: g.rows.map((r, i) => [i + 1, kodeBarang(r.code), r.name, r.brand ?? "-", r.regNos, r.year, r.qty, r.value, r.intra ? "Intra" : "Ekstra", r.rooms || "-"]),
         foot: ["", "", "Jumlah", "", "", "", g.qty, g.intra + g.ekstra, "", ""],
       })),
       {

@@ -101,7 +101,8 @@ export const TOPICS: Topic[] = [
         <H2>Langkah-langkah</H2>
         <Steps>
           <li><Go href="/pengaturan/profil">Profil & kop dokumen</Go>: alamat lengkap, logo Pemda & sekolah, nama dan NIP Kepala Sekolah (Kuasa Pengguna Barang) serta Pengurus Barang. Data ini muncul di kop dan tanda tangan semua cetakan.</li>
-          <li><Go href="/pengaturan/kode-bmd">Kode BMD & kapitalisasi</Go>: kode Pengguna/Kuasa Pengguna Barang dari BPKAD dan <b>batas kapitalisasi</b> (bawaan Rp2.000.000; sesuaikan dengan Perkada). Selama kode belum diisi, kode register dicetak dengan tanda <i>SEMENTARA</i>.</li>
+          <li><Go href="/pengaturan/kode-bmd">Kode lokasi, label & kapitalisasi</Go>: salin kode lokasi dari label aset Dinas atau aplikasi SIMDA BMD — <b>kode provinsi SIMDA</b> (Kalimantan Utara: 34), <b>Bidang</b> (mis. 08), <b>Unit</b> (mis. 01), <b>Sub Unit</b> sekolah (mis. 058), dan <b>UPB bawaan</b> (01). Pratinjau kode tampil langsung. Atur juga apakah <b>logo Pemda</b> dan <b>QR</b> dicetak di label, serta <b>batas kapitalisasi</b> (bawaan Rp2.000.000; sesuaikan dengan Perkada). Selama kode lokasi kosong, kode register dicetak dengan tanda <i>SEMENTARA</i>.</li>
+          <li>Di <Go href="/data-dasar/sumber-dana">Sumber Dana</Go>, isi <b>Kode UPB</b> sesuai daftar UPB sekolah di SIMDA (mis. 02 Bosnas, 03 Bosprov, 04 P3D, 05 Block Grant, 06 DAK). Barang dari dana lain — komite, hibah, swadaya — atau tanpa sumber dana otomatis memakai UPB bawaan 01.</li>
           <li><Go href="/data-dasar">Data dasar</Go>: <Go href="/data-dasar/unit">Unit</Go>, <Go href="/data-dasar/gedung">Gedung</Go>, <Go href="/data-dasar/ruangan">Ruangan</Go> (isi penanggung jawab untuk KIR), <Go href="/data-dasar/gudang">Gudang</Go> (tandai satu sebagai gudang utama), <Go href="/data-dasar/satuan">Satuan</Go>, <Go href="/data-dasar/sumber-dana">Sumber dana</Go> & <Go href="/data-dasar/komponen-dana">komponen</Go> (mis. BOSP), dan <Go href="/data-dasar/penyedia">Penyedia</Go>.</li>
           <li><Go href="/pengaturan/alur-kerja">Alur kerja</Go>:
             <List>
@@ -236,7 +237,7 @@ export const TOPICS: Topic[] = [
           <li>Klik <Btn>+ Catat aset</Btn>. Cari kode barang dengan kata sehari-hari, misalnya <i>laptop</i>, <i>meja siswa</i>, <i>AC</i>. Kode yang sering dipakai bisa dijadikan favorit.</li>
           <li>Isi nama/merk, tanggal dan cara perolehan, harga satuan, sumber dana, ruangan, kondisi, dan <b>jumlah unit</b>. Kolom khusus sesuai golongan KIB (mis. nomor rangka/BPKB untuk kendaraan, luas & sertifikat untuk tanah) muncul otomatis.</li>
           <li>Aplikasi menetapkan <b>intrakomptabel</b> bila harga ≥ batas kapitalisasi, dan <b>ekstrakomptabel</b> bila di bawahnya. Tanah dan KDP selalu intrakomptabel.</li>
-          <li>Setelah disimpan, klik <Btn>Cetak label</Btn> untuk mencetak label berkode register + QR, lalu tempelkan di barang.</li>
+          <li>Setelah disimpan, klik <Btn>Cetak label</Btn> untuk mencetak label bergaya SIMDA (logo Pemda, kode lokasi, kode barang + register, QR), lalu tempelkan di barang. Untuk cetak massal, buka <Go href="/aset">Aset</Go> › <i>Cetak label kode barang</i> dan pilih tahun perolehan, kelompok barang, UPB, atau ruangan — seperti menu Label Kode Barang di SIMDA.</li>
         </Steps>
         <Tip>Barang dari pengadaan tidak perlu dicatat ulang karena otomatis tercatat saat diterima. KDP dan aset dalam renovasi dicatat lewat tab KDP & renovasi.</Tip>
         <H2>Halaman barang</H2>
@@ -525,7 +526,9 @@ export const TOPICS: Topic[] = [
         <H3>Harga aset salah ketik.</H3>
         <P>Buka barangnya lalu klik <Btn>Koreksi nilai/tanggal</Btn>. Nilai lama dan baru tercatat di riwayat. Untuk nama, merk, ruangan, dan atribut lain cukup <Btn>Ubah data barang</Btn>.</P>
         <H3>Kode register bertanda SEMENTARA.</H3>
-        <P>Admin belum mengisi kode Pengguna/Kuasa Pengguna Barang di <Go href="/pengaturan/kode-bmd">Kode BMD</Go>. Setelah diisi, kode lengkap tampil otomatis dan label bisa dicetak ulang.</P>
+        <P>Admin belum mengisi kode lokasi SIMDA (bidang, unit, sub unit) di <Go href="/pengaturan/kode-bmd">Penyiapan › Kode lokasi</Go>. Setelah diisi, kode lengkap tampil otomatis dan label bisa dicetak ulang; QR tidak berubah.</P>
+        <H3>Membaca kode register pada label.</H3>
+        <P>Baris atas <span className="font-mono">11.01.34.00.08.01.058.02.2026</span> = kepemilikan Pemprov (11) · intrakomptabel (01; 02 = ekstrakomptabel) · provinsi (34) · kab/kota (00 untuk aset provinsi) · bidang (08) · unit (01) · sub unit sekolah (058) · UPB menurut sumber dana (02 = Bosnas) · tahun perolehan. Baris bawah <span className="font-mono">1.3.2.05.002.007.001.000001</span> = kode barang Permendagri 108 (rincian & sub rincian ditulis 3 digit seperti SIMDA) · nomor register, yaitu urutan unit barang berkode sama (000013 = unit ke-13).</P>
         <H3>Tombol setujui tidak muncul.</H3>
         <P>Tombol hanya muncul untuk peran yang sedang ditunggu (lihat status “menunggu …” di halaman tersebut). Periksa peran Anda di <Go href="/panduan/peran">Peran & hak akses</Go>.</P>
         <H3>Gudang tidak bisa dipakai untuk penyaluran.</H3>

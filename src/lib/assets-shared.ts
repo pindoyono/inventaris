@@ -94,29 +94,66 @@ export function isIntraFor(kib: string, priceCents: bigint, capitalization: Reco
 
 export type RegisterParts = {
   ownershipCode: string; // 11 provinsi / 12 kab/kota
-  provinceCode: string; // "65"
+  provinceCode: string; // kode wilayah, mis. "65" (cadangan bila kode provinsi SIMDA kosong)
   regencyCode: string; // "65.02"
-  kodePengguna: string | null;
-  kodeKuasaPengguna: string | null;
-  kodeSubKuasa: string;
+  /** Format SIMDA BMD (label Dinas) */
+  kodeProvinsi: string | null; // mis. "34" (Kalimantan Utara di SIMDA)
+  kodeKab: string | null;
+  kodeBidang: string | null; // "08" Bidang Pendidikan dan Kebudayaan
+  kodeUnit: string | null; // "01" Dinas Pendidikan, Kebudayaan
+  kodeSubUnit: string | null; // "058" SMKN 2 Malinau
+  /** UPB bawaan (barang tanpa sumber dana / sumber dana tanpa kode UPB) */
+  kodeUpb: string;
+  /** id sumber dana → kode UPB */
+  upbByFunding: Record<string, string>;
 };
 
-/** Kode register dua baris (Permendagri 108/2016). `provisional` bila kode pengguna/kuasa belum diisi. */
-export function registerCode(p: RegisterParts, a: { isIntra: boolean; acqDate: string; bmdCode: string; regNo: number }) {
-  const kab = p.ownershipCode === "11" ? "00" : p.regencyCode.split(".")[1];
-  const provisional = !p.kodePengguna || !p.kodeKuasaPengguna;
+/** Kode lokasi belum lengkap → kode register ditandai SEMENTARA */
+export const lokasiProvisional = (p: RegisterParts) => !p.kodeBidang || !p.kodeUnit || !p.kodeSubUnit;
+
+/** UPB barang: dari sumber dananya, bila tidak ada pakai UPB bawaan */
+export const upbOf = (p: RegisterParts, fundingSourceId: string | null | undefined) => (fundingSourceId && p.upbByFunding[fundingSourceId]) || p.kodeUpb || "01";
+
+/**
+ * Kode register dua baris seperti label SIMDA BMD:
+ * atas  = kepemilikan.intra/ekstra.provinsi.kab/kota.bidang.unit.sub unit.UPB.tahun   → 11.01.34.00.08.01.058.02.2026
+ * bawah = kode barang (rincian & sub rincian 3 digit).nomor register                   → 1.3.2.05.002.007.001.000001
+ */
+export function registerCode(p: RegisterParts, a: { isIntra: boolean; acqDate: string; bmdCode: string; regNo: number; fundingSourceId?: string | null }) {
+  const kab = p.kodeKab ?? (p.ownershipCode === "11" ? "00" : p.regencyCode.split(".")[1]);
   const top = [
     p.ownershipCode,
     a.isIntra ? "01" : "02",
-    p.provinceCode,
+    p.kodeProvinsi ?? p.provinceCode,
     kab,
-    p.kodePengguna ?? "??????",
-    p.kodeKuasaPengguna ?? "?????",
-    p.kodeSubKuasa,
+    p.kodeBidang ?? "??",
+    p.kodeUnit ?? "??",
+    p.kodeSubUnit ?? "???",
+    upbOf(p, a.fundingSourceId),
     a.acqDate.slice(0, 4),
   ].join(".");
-  const bottom = `${a.bmdCode}.${String(a.regNo).padStart(6, "0")}`;
-  return { top, bottom, provisional };
+  const bottom = `${kodeBarang(a.bmdCode)}.${String(a.regNo).padStart(6, "0")}`;
+  return { top, bottom, provisional: lokasiProvisional(p) };
+}
+
+/**
+ * Kode barang aset ditampilkan seperti SIMDA BMD: rincian objek & sub rincian objek 3 digit
+ * (1.3.2.05.02.07.001 → 1.3.2.05.002.007.001). Disimpan tetap mengikuti referensi Permendagri 108 (2 digit).
+ */
+export function kodeBarang(code: string) {
+  if (!/^1\.[35]\./.test(code)) return code;
+  const p = code.split(".");
+  for (const i of [4, 5]) if (p[i] !== undefined && /^\d{1,2}$/.test(p[i])) p[i] = p[i].padStart(3, "0");
+  return p.join(".");
+}
+
+/** Kebalikan kodeBarang: terima ketikan/impor format SIMDA (3 digit) atau Permendagri (2 digit) */
+export function kodeBarangInternal(code: string) {
+  const c = code.trim();
+  if (!/^1\.[35]\./.test(c)) return c;
+  const p = c.split(".");
+  for (const i of [4, 5]) if (p[i] !== undefined && /^0\d{2}$/.test(p[i])) p[i] = p[i].slice(1);
+  return p.join(".");
 }
 
 /** [1,2,3,5,7,8] → "000001 s/d 000003, 000005, 000007 s/d 000008" */

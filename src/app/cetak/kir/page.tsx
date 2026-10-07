@@ -9,6 +9,7 @@ import { loadPrintContext } from "@/lib/server/print";
 import { kirData } from "@/lib/server/reports";
 import { fmtRp } from "@/lib/decimal";
 import { tanggalPanjang } from "@/lib/terbilang";
+import { kodeBarang } from "@/lib/assets-shared";
 import { Halaman, Identitas, Judul, Kop, KodeLokasi, kepsekCol, pengurusCol, Tabel, Ttd } from "@/components/cetak/print";
 import { printPeriod } from "../params";
 
@@ -54,7 +55,7 @@ function KirPage({ k, c, label, asOf, first }: { k: NonNullable<Awaited<ReturnTy
         foot={<tr className="jumlah"><td colSpan={6} className="angka">JUMLAH</td><td className="angka">{k.units}</td><td className="angka">{fmtRp(k.total)}</td>
           <td className="tengah">{k.rows.reduce((a, r) => a + r.baik, 0) || ""}</td><td className="tengah">{k.rows.reduce((a, r) => a + r.rr, 0) || ""}</td><td className="tengah">{k.rows.reduce((a, r) => a + r.rb, 0) || ""}</td><td /></tr>}>
         {k.rows.map((r, i) => (
-          <tr key={i}><td className="tengah">{i + 1}</td><td className="kode">{r.bmdCode}</td><td className="kode" style={{ whiteSpace: r.regNos.includes(",") ? "normal" : "nowrap" }}>{r.regNos}</td><td>{r.name}</td><td>{r.brand ?? "-"}</td><td className="tengah">{r.year}</td>
+          <tr key={i}><td className="tengah">{i + 1}</td><td className="kode">{kodeBarang(r.bmdCode)}</td><td className="kode" style={{ whiteSpace: r.regNos.includes(",") ? "normal" : "nowrap" }}>{r.regNos}</td><td>{r.name}</td><td>{r.brand ?? "-"}</td><td className="tengah">{r.year}</td>
             <td className="angka">{r.qty}</td><td className="angka">{fmtRp(r.total)}</td><td className="tengah">{r.baik || ""}</td><td className="tengah">{r.rr || ""}</td><td className="tengah">{r.rb || ""}</td>
             <td>{r.ekstra ? (r.ekstra === r.qty ? "Ekstrakomptabel" : `${r.ekstra} ekstrakomptabel`) : ""}</td></tr>
         ))}

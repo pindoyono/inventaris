@@ -251,6 +251,21 @@ export const schoolSettings = pgTable("school_settings", {
   kodePengguna: varchar("kode_pengguna", { length: 6 }),
   kodeKuasaPengguna: varchar("kode_kuasa_pengguna", { length: 5 }),
   kodeSubKuasa: varchar("kode_sub_kuasa", { length: 5 }).notNull().default("00000"),
+  /**
+   * Kode lokasi format SIMDA BMD (label Dinas): 11.01.<prov>.<kab>.<bidang>.<unit>.<sub unit>.<UPB>.<tahun>.
+   * Mis. SMKN 2 Malinau: provinsi 34 (penomoran SIMDA, bukan kode wilayah 65), bidang 08, unit 01, sub unit 058.
+   * Kolom kode_pengguna/kode_kuasa_pengguna/kode_sub_kuasa di atas tidak dipakai lagi.
+   */
+  kodeProvinsi: varchar("kode_provinsi", { length: 2 }),
+  kodeKab: varchar("kode_kab", { length: 2 }),
+  kodeBidang: varchar("kode_bidang", { length: 2 }),
+  kodeUnit: varchar("kode_unit", { length: 2 }),
+  kodeSubUnit: varchar("kode_sub_unit", { length: 3 }),
+  /** UPB bawaan: barang tanpa sumber dana atau sumber dana tanpa kode UPB (komite, hibah, …) */
+  kodeUpb: varchar("kode_upb", { length: 2 }).notNull().default("01"),
+  /** Tampilan label kode register */
+  labelQr: boolean("label_qr").notNull().default(true),
+  labelLogo: boolean("label_logo").notNull().default(true),
   /** Batas kapitalisasi per golongan, mis. {"default":2000000,"B":2000000} */
   capitalization: jsonb("capitalization").$type<Record<string, number>>().notNull().default({ default: 2_000_000 }),
   // Alur kerja
@@ -409,6 +424,8 @@ export const fundingSources = pgTable(
     schoolId: schoolId(),
     code: varchar("code", { length: 30 }).notNull(),
     name: text("name").notNull(),
+    /** UPB SIMDA untuk barang dari sumber dana ini (mis. Bosnas 02, Bosprov 03, P3D 04, Block Grant 05, DAK 06) */
+    kodeUpb: varchar("kode_upb", { length: 2 }),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps(),
   },

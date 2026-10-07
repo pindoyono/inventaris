@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import Link from "next/link";
+import { useActionState, useState } from "react";
 import { Button, Card, Field, FormMessage, Input, Select, Textarea } from "@/components/ui";
 import type { FormState } from "@/lib/server/action";
 import { completeSetup, saveBmdSettings, saveProfile, saveWorkflow } from "./actions";
@@ -94,28 +95,90 @@ const GOLONGAN_LABEL: Record<string, string> = {
   ATB: "Aset tak berwujud",
 };
 
-export function BmdForm({ v }: { v: { kodePengguna: string; kodeKuasaPengguna: string; kodeSubKuasa: string; capDefault: string; caps: Record<string, string> } }) {
+export type BmdFormValues = {
+  kodeProvinsi: string; kodeKab: string; kodeBidang: string; kodeUnit: string; kodeSubUnit: string; kodeUpb: string;
+  labelQr: boolean; labelLogo: boolean; capDefault: string; caps: Record<string, string>;
+  ownershipCode: string; provinceCode: string; regencyCode: string; schoolName: string;
+  funds: { name: string; upb: string | null }[];
+};
+
+export function BmdForm({ v }: { v: BmdFormValues }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveBmdSettings, {});
   const e = state.errors ?? {};
   const val = (k: string, d: string) => state.values?.[k] ?? d;
+  const [f, setF] = useState({ prov: v.kodeProvinsi, kab: v.kodeKab, bid: v.kodeBidang, unit: v.kodeUnit, sub: v.kodeSubUnit, upb: v.kodeUpb || "01" });
+  const on = (k: keyof typeof f) => (ev: { target: { value: string } }) => setF((o) => ({ ...o, [k]: ev.target.value.replace(/\D/g, "") }));
+  const pad = (x: string, n: number, fb: string) => (x ? x.padStart(n, "0") : fb);
+  const kab = f.kab ? f.kab.padStart(2, "0") : v.ownershipCode === "11" ? "00" : v.regencyCode.split(".")[1];
+  const preview = [v.ownershipCode, "01", pad(f.prov, 2, v.provinceCode), kab, pad(f.bid, 2, "??"), pad(f.unit, 2, "??"), pad(f.sub, 3, "???"), pad(f.upb, 2, "01"), "2026"].join(".");
   return (
     <form action={action} className="space-y-6">
       <FormMessage state={state} />
-      <Card title="Kode lokasi (kode register BMD)">
+      <Card title="Kode lokasi (sama dengan label SIMDA BMD Dinas)">
         <p className="mb-4 text-sm text-slate-600">
-          Ditetapkan Pemda (BPKAD/Dinas). Dapat dilihat pada label aset lama, KIB/KIR terdahulu, atau ditanyakan ke
-          pengurus barang Dinas Pendidikan. Selama kosong, kode register dicetak dengan tanda <strong>SEMENTARA</strong>.
+          Salin dari label aset Dinas atau aplikasi SIMDA BMD (menu Laporan › Label Kode Barang). Contoh label Dinas:
+          <span className="ml-1 font-mono">11.01.<b>34</b>.00.<b>08</b>.<b>01</b>.<b>058</b>.<b>02</b>.2026</span> = kepemilikan Pemprov · intrakomptabel ·
+          <b> provinsi 34</b> · kab 00 · <b>bidang 08</b> · <b>unit 01</b> · <b>sub unit 058</b> · <b>UPB 02</b> · tahun perolehan.
+          Selama bidang/unit/sub unit kosong, kode register dicetak dengan tanda <strong>SEMENTARA</strong>.
         </p>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Kode pengguna barang" error={e.kodePengguna} hint="6 digit (Dinas)">
-            <Input name="kodePengguna" defaultValue={val("kodePengguna", v.kodePengguna)} maxLength={6} inputMode="numeric" invalid={!!e.kodePengguna} />
+          <Field label="Kode provinsi (SIMDA)" error={e.kodeProvinsi} hint={`Kalimantan Utara di SIMDA: 34 (bukan kode wilayah ${v.provinceCode})`}>
+            <Input name="kodeProvinsi" value={f.prov} onChange={on("prov")} maxLength={2} inputMode="numeric" placeholder={v.provinceCode} invalid={!!e.kodeProvinsi} />
           </Field>
-          <Field label="Kode kuasa pengguna" error={e.kodeKuasaPengguna} hint="5 digit (sekolah)">
-            <Input name="kodeKuasaPengguna" defaultValue={val("kodeKuasaPengguna", v.kodeKuasaPengguna)} maxLength={5} inputMode="numeric" invalid={!!e.kodeKuasaPengguna} />
+          <Field label="Kode kab/kota" error={e.kodeKab} hint={v.ownershipCode === "11" ? "Aset provinsi: kosongkan (00)" : "Kosong = dari data wilayah"}>
+            <Input name="kodeKab" value={f.kab} onChange={on("kab")} maxLength={2} inputMode="numeric" placeholder={kab} invalid={!!e.kodeKab} />
           </Field>
-          <Field label="Kode sub kuasa pengguna" error={e.kodeSubKuasa} hint="00000 bila tidak ada">
-            <Input name="kodeSubKuasa" defaultValue={val("kodeSubKuasa", v.kodeSubKuasa)} maxLength={5} inputMode="numeric" invalid={!!e.kodeSubKuasa} />
+          <div />
+          <Field label="Bidang" error={e.kodeBidang} hint="mis. 08 Bidang Pendidikan dan Kebudayaan">
+            <Input name="kodeBidang" value={f.bid} onChange={on("bid")} maxLength={2} inputMode="numeric" placeholder="08" invalid={!!e.kodeBidang} />
           </Field>
+          <Field label="Unit / Perangkat Daerah" error={e.kodeUnit} hint="mis. 01 Dinas Pendidikan, Kebudayaan">
+            <Input name="kodeUnit" value={f.unit} onChange={on("unit")} maxLength={2} inputMode="numeric" placeholder="01" invalid={!!e.kodeUnit} />
+          </Field>
+          <Field label="Sub Unit (sekolah)" error={e.kodeSubUnit} hint={`mis. 058 ${v.schoolName}`}>
+            <Input name="kodeSubUnit" value={f.sub} onChange={on("sub")} maxLength={3} inputMode="numeric" placeholder="058" invalid={!!e.kodeSubUnit} />
+          </Field>
+        </div>
+        <div className="mt-4 rounded-md border border-teal-200 bg-teal-50 px-4 py-3 text-sm">
+          Pratinjau kode lokasi (barang tahun 2026, UPB bawaan): <span className="font-mono font-semibold">{preview}</span>
+        </div>
+      </Card>
+
+      <Card title="UPB (Unit Pengelola Barang) per sumber dana">
+        <p className="mb-3 text-sm text-slate-600">
+          Di SIMDA, satu sekolah punya beberapa UPB menurut <b>sumber dana</b> barangnya, mis. 1 Umum · 2 Bosnas · 3 Bosprov · 4 P3D · 5 Block Grant · 6 DAK.
+          Kode UPB tiap sumber dana diatur di <Link href="/data-dasar/sumber-dana" className="font-medium text-teal-700 underline">Data Dasar › Sumber Dana</Link>.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="UPB bawaan" error={e.kodeUpb} hint="Untuk barang tanpa sumber dana atau sumber dana tanpa kode UPB">
+            <Input name="kodeUpb" value={f.upb} onChange={on("upb")} maxLength={2} inputMode="numeric" placeholder="01" invalid={!!e.kodeUpb} />
+          </Field>
+          <div className="sm:col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <b>Dana lain</b> — komite sekolah, hibah/sumbangan, swadaya, atau sumber dana apa pun yang <i>belum diberi kode UPB</i> — otomatis
+            masuk <b>UPB bawaan ({pad(f.upb, 2, "01")})</b>, yaitu UPB umum “{v.schoolName}”. Barang tanpa sumber dana juga masuk ke sini.
+          </div>
+        </div>
+        <table className="mt-4 w-full text-sm">
+          <thead className="text-left text-slate-500"><tr><th className="py-1 font-medium">Sumber dana</th><th className="py-1 font-medium">UPB pada kode register</th></tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {v.funds.length === 0 && <tr><td colSpan={2} className="py-2 text-slate-500">Belum ada sumber dana.</td></tr>}
+            {v.funds.map((x) => (
+              <tr key={x.name}><td className="py-1.5">{x.name}</td><td className="py-1.5 font-mono">{x.upb ?? <span className="font-sans text-slate-500">{pad(f.upb, 2, "01")} (bawaan — belum diberi kode)</span>}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      <Card title="Tampilan label kode register">
+        <div className="space-y-2 text-sm">
+          <label className="flex items-start gap-2">
+            <input type="checkbox" name="labelLogo" defaultChecked={state.values ? state.values.labelLogo === "on" : v.labelLogo} className="mt-0.5 size-4 accent-teal-700" />
+            <span>Tampilkan <b>logo Pemda</b> di kiri label (seperti label Dinas). Logo diambil dari <Link href="/pengaturan/profil" className="text-teal-700 underline">Profil & kop</Link>.</span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" name="labelQr" defaultChecked={state.values ? state.values.labelQr === "on" : v.labelQr} className="mt-0.5 size-4 accent-teal-700" />
+            <span>Tampilkan <b>QR code</b> di kanan label — dipindai dengan HP untuk membuka data barang (lokasi, kondisi, riwayat).</span>
+          </label>
         </div>
       </Card>
       <Card title="Batas nilai kapitalisasi">

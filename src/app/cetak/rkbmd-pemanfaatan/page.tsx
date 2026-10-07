@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { kodeBarang } from "@/lib/assets-shared";
 import { withSchool } from "@/lib/tenant";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { todayWita } from "@/lib/server/ledger";
@@ -28,7 +29,7 @@ export default async function CetakRkbmdPemanfaatan({ searchParams }: PageProps<
       <Tabel cols={11} head={<tr><th>No</th><th>Kode Barang</th><th>Nama Barang</th><th>Spesifikasi Nama Barang</th><th>NIBAR</th><th>Jumlah Barang</th><th>Lokasi</th><th>Peruntukan</th><th>Bentuk Pemanfaatan</th><th>Jangka Waktu</th><th>Ket.</th></tr>}>
         {rows.map((r, i) => (
           <tr key={`${r.id}-${r.reg_no}-${r.bmd_code}`}>
-            <td className="tengah">{i + 1}</td><td className="kode">{r.bmd_code}</td><td>{r.codeName || r.name}</td>
+            <td className="tengah">{i + 1}</td><td className="kode">{kodeBarang(r.bmd_code)}</td><td>{r.codeName || r.name}</td>
             <td>{[r.name !== r.codeName ? r.name : null, r.brand].filter(Boolean).join(", ") || "-"}</td><td className="kode">-</td>
             <td className="tengah">{r.portion || r.attrs.luas ? `${r.portion ?? `${r.attrs.luas} m²`}` : "1 unit"}</td>
             <td>{[r.room, r.attrs.alamat ?? r.attrs.letak].filter(Boolean).join(", ") || c.school.name}</td>

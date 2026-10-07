@@ -57,7 +57,7 @@ export function KodeLokasi({ c }: { c: PrintContext }) {
   return (
     <>
       {c.kodeLokasi}
-      {c.provisional && <span className="sementara"> (SEMENTARA — kode pengguna/kuasa pengguna belum diisi)</span>}
+      {c.provisional && <span className="sementara"> (SEMENTARA — kode bidang/unit/sub unit belum diisi)</span>}
     </>
   );
 }

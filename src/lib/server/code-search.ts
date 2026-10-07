@@ -1,4 +1,5 @@
 import "server-only";
+import { kodeBarangInternal } from "@/lib/assets-shared";
 import { alias } from "drizzle-orm/pg-core";
 import { and, asc, eq, ilike, inArray, like, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -22,7 +23,7 @@ function synonymCodes(term: string, dict: Record<string, string[]>) {
  * ("laptop" → "Lap Top") dan lewat kamus sinonim.
  */
 export async function searchCodes(schoolId: string, q: string, kind: "persediaan" | "aset"): Promise<CodeHit[]> {
-  const term = q.trim().slice(0, 60);
+  const term = kodeBarangInternal(q.trim().slice(0, 60)); // ketikan format SIMDA (3 digit) ikut ditemukan
   if (term.length < 2) return [];
   const isCode = /^[\d.]+$/.test(term);
   const esc = (v: string) => v.replace(/[%_\\]/g, "\\$&");

@@ -26,12 +26,12 @@ export async function setupStatus(tx: Tx) {
     },
     {
       key: "bmd",
-      title: "Kode BMD & kapitalisasi",
+      title: "Kode lokasi SIMDA, label & kapitalisasi",
       href: "/pengaturan/kode-bmd",
-      done: !!(st.kodePengguna && st.kodeKuasaPengguna),
+      done: !!(st.kodeBidang && st.kodeUnit && st.kodeSubUnit),
       required: false,
-      note: st.kodePengguna && st.kodeKuasaPengguna
-        ? `Kode lokasi ${st.kodePengguna}.${st.kodeKuasaPengguna}.${st.kodeSubKuasa}`
+      note: st.kodeBidang && st.kodeUnit && st.kodeSubUnit
+        ? `Kode lokasi ${st.kodeProvinsi ?? "?"}.${st.kodeKab ?? "00"}.${st.kodeBidang}.${st.kodeUnit}.${st.kodeSubUnit} · UPB bawaan ${st.kodeUpb}`
         : "Boleh menyusul; selama kosong, kode register dicetak dengan tanda SEMENTARA.",
     },
     {

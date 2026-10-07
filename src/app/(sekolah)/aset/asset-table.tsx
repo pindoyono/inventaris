@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Alert, Button } from "@/components/ui";
-import { CONDITION_LABEL, STATUS_LABEL } from "@/lib/assets-shared";
+import { CONDITION_LABEL, kodeBarang, STATUS_LABEL } from "@/lib/assets-shared";
 import { fmtRp } from "@/lib/decimal";
 import { conditionAction, moveAssetsAction } from "./actions";
 
@@ -80,7 +80,7 @@ export function AssetTable({ rows, rooms, canEdit, today }: { rows: Row[]; rooms
             {rows.map((r) => (
               <tr key={r.id} className={sel.has(r.id) ? "bg-teal-50" : ""}>
                 {canEdit && <td className="px-3 py-2"><input type="checkbox" aria-label={`Pilih ${r.name}`} checked={sel.has(r.id)} onChange={() => toggle(r.id)} className="size-4 accent-teal-700" /></td>}
-                <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{r.bmdCode} · {String(r.regNo).padStart(6, "0")}</td>
+                <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{kodeBarang(r.bmdCode)} · {String(r.regNo).padStart(6, "0")}</td>
                 <td className="px-3 py-2">
                   <Link href={`/aset/${r.id}`} className="font-medium text-teal-800 hover:underline">{r.name}</Link>
                   {r.brand && <span className="text-slate-500"> · {r.brand}</span>}

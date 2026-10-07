@@ -6,7 +6,7 @@ import { withSchool } from "@/lib/tenant";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { loadPrintContext } from "@/lib/server/print";
 import { DISPOSAL_REASON_LABEL } from "@/lib/server/disposal";
-import { CONDITION_LABEL, KIB_LABEL, registerCode } from "@/lib/assets-shared";
+import { CONDITION_LABEL, KIB_LABEL, kodeBarang, registerCode } from "@/lib/assets-shared";
 import { fmtRp, parseDec } from "@/lib/decimal";
 import { tanggalPanjang } from "@/lib/terbilang";
 import { Halaman, Identitas, Judul, Kop, Tabel, Ttd } from "@/components/cetak/print";
@@ -63,7 +63,7 @@ export default async function CetakPenghapusan({ params, searchParams }: PagePro
               const x = g[0];
               return (
                 <tr key={x.l.id}>
-                  <td className="tengah">{i + 1}</td><td className="kode">{x.a.bmdCode}</td><td>{x.a.name}</td><td>{spec(x)}</td><td className="kode">-</td>
+                  <td className="tengah">{i + 1}</td><td className="kode">{kodeBarang(x.a.bmdCode)}</td><td>{x.a.name}</td><td>{spec(x)}</td><td className="kode">-</td>
                   <td className="tengah">{g.length} unit</td><td>{[...new Set(g.map((y) => y.room ?? c.school.name))].join(", ")}</td>
                   <td className="angka">{fmtRp(g.reduce((a2, y) => a2 + parseDec(y.a.acqPrice), 0n))}</td>
                   <td>{x.l.transferForm ? TRANSFER_FORM_LABEL[x.l.transferForm] : "Penjualan"}</td><td>{DISPOSAL_REASON_LABEL[x.l.reason]}</td>
@@ -81,7 +81,7 @@ export default async function CetakPenghapusan({ params, searchParams }: PagePro
               const regs = g.map((y) => String(y.a.regNo).padStart(6, "0")).join(", ");
               return (
                 <tr key={x.l.id}>
-                  <td className="tengah">{i + 1}</td><td className="kode">{x.a.bmdCode}</td><td>{x.a.name}</td>
+                  <td className="tengah">{i + 1}</td><td className="kode">{kodeBarang(x.a.bmdCode)}</td><td>{x.a.name}</td>
                   <td>{spec(x)}</td>
                   <td className="kode" style={{ whiteSpace: "normal" }}>-</td>
                   <td className="tengah">{g.length} unit</td><td className="angka">{fmtRp(g.reduce((a2, y) => a2 + parseDec(y.a.acqPrice), 0n))}</td>

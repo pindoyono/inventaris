@@ -2,7 +2,8 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import type { Tx } from "@/db";
 import { regions, schoolSettings, schools } from "@/db/schema";
-import { registerCode } from "@/lib/assets-shared";
+import { lokasiProvisional, registerCode } from "@/lib/assets-shared";
+import { loadRegisterParts } from "@/lib/server/register";
 
 export type Signer = { name: string | null; nip: string | null };
 
@@ -12,15 +13,15 @@ export async function loadPrintContext(tx: Tx, schoolId: string) {
   const [st] = await tx.select().from(schoolSettings);
   const [reg] = await tx.select({ name: regions.name }).from(regions).where(eq(regions.code, sc.regencyCode));
   const [prov] = await tx.select({ name: regions.name }).from(regions).where(eq(regions.code, sc.provinceCode));
-  const parts = {
-    ownershipCode: sc.ownershipCode, provinceCode: sc.provinceCode, regencyCode: sc.regencyCode,
-    kodePengguna: st.kodePengguna, kodeKuasaPengguna: st.kodeKuasaPengguna, kodeSubKuasa: st.kodeSubKuasa,
-  };
+  const parts = await loadRegisterParts(tx, schoolId);
+  // Kode lokasi dokumen = kode register baris atas tanpa tahun (UPB bawaan)
   const top = registerCode(parts, { isIntra: true, acqDate: "0000", bmdCode: "", regNo: 0 }).top.split(".");
   return {
     parts,
-    kodeLokasi: top.slice(0, 7).join("."),
-    provisional: !st.kodePengguna || !st.kodeKuasaPengguna,
+    kodeLokasi: top.slice(0, 8).join("."),
+    provisional: lokasiProvisional(parts),
+    labelQr: st.labelQr,
+    labelLogo: st.labelLogo,
     school: { name: sc.name, npsn: sc.npsn },
     pemda: (st.pemdaName ?? "").toUpperCase(),
     dinas: (st.dinasName ?? "").toUpperCase(),

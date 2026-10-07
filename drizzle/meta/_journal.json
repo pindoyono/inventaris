@@ -176,6 +176,13 @@
       "when": 1791334193987,
       "tag": "0024_rls_laporan_barang",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791367934210,
+      "tag": "0025_kode_lokasi_simda",
+      "breakpoints": true
     }
   ]
 }

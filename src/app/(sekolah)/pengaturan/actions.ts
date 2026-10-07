@@ -64,17 +64,22 @@ export async function saveBmdSettings(_prev: FormState, fd: FormData): Promise<F
   const res = await runSchoolAction(["ADMIN"], async (tx, s) => {
     const [before] = await tx.select().from(schoolSettings);
     const after = {
-      kodePengguna: d.kodePengguna,
-      kodeKuasaPengguna: d.kodeKuasaPengguna,
-      kodeSubKuasa: d.kodeSubKuasa,
+      kodeProvinsi: d.kodeProvinsi,
+      kodeKab: d.kodeKab,
+      kodeBidang: d.kodeBidang,
+      kodeUnit: d.kodeUnit,
+      kodeSubUnit: d.kodeSubUnit,
+      kodeUpb: d.kodeUpb,
+      labelQr: d.labelQr,
+      labelLogo: d.labelLogo,
       capitalization,
     };
     await tx.update(schoolSettings).set({ ...after, updatedAt: new Date() });
     await logActivity(tx, s, "UBAH", "pengaturan_bmd", s.schoolId,
-      { kodePengguna: before.kodePengguna, kodeKuasaPengguna: before.kodeKuasaPengguna, kodeSubKuasa: before.kodeSubKuasa, capitalization: before.capitalization },
+      { kodeProvinsi: before.kodeProvinsi, kodeKab: before.kodeKab, kodeBidang: before.kodeBidang, kodeUnit: before.kodeUnit, kodeSubUnit: before.kodeSubUnit, kodeUpb: before.kodeUpb, labelQr: before.labelQr, labelLogo: before.labelLogo, capitalization: before.capitalization },
       after);
     revalidatePath("/pengaturan");
-    return { ok: "Kode BMD dan batas kapitalisasi tersimpan." };
+    return { ok: "Kode lokasi, pengaturan label, dan batas kapitalisasi tersimpan." };
   });
   return res.errors ? { ...res, values: raw } : res;
 }

@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
-import { registerCode, type RegisterParts } from "@/lib/assets-shared";
+import { lokasiProvisional, registerCode, type RegisterParts } from "@/lib/assets-shared";
 import { PrintButton } from "./print-button";
 
 /** Kode lokasi (baris atas kode register tanpa intra/ekstra & tahun) */
 export function kodeLokasi(p: RegisterParts) {
   const top = registerCode(p, { isIntra: true, acqDate: "0000", bmdCode: "", regNo: 0 }).top.split(".");
-  return { text: [top[0], top[1], top[2], top[3], top[4], top[5], top[6]].join("."), provisional: !p.kodePengguna || !p.kodeKuasaPengguna };
+  return { text: top.slice(0, 8).join("."), provisional: lokasiProvisional(p) };
 }
 
 export function ReportHeader({ parts, title, subtitle, children, csv, print }: {
@@ -22,7 +22,7 @@ export function ReportHeader({ parts, title, subtitle, children, csv, print }: {
           {subtitle && <p className="text-sm text-slate-600">{subtitle}</p>}
           <p className="text-sm text-slate-600">
             Kode lokasi: <span className="font-mono">{kl.text}</span>
-            {kl.provisional && <span className="ml-2 rounded bg-red-100 px-1.5 text-xs text-red-700 print:hidden">SEMENTARA — isi kode di Penyiapan</span>}
+            {kl.provisional && <span className="ml-2 rounded bg-red-100 px-1.5 text-xs text-red-700 print:hidden">SEMENTARA — isi kode lokasi SIMDA di Penyiapan</span>}
           </p>
         </div>
         <div className="flex gap-2 print:hidden">

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { and, asc, count, eq, ilike, isNull, ne, or, sql, type SQL } from "drizzle-orm";
-import { assets, rooms } from "@/db/schema";
+import { and, asc, count, eq, ilike, isNotNull, isNull, ne, or, sql, type SQL } from "drizzle-orm";
+import { assets, fundingSources, rooms, schoolSettings } from "@/db/schema";
 import { withSchool } from "@/lib/tenant";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { hasAnyRole } from "@/lib/roles";
@@ -62,7 +62,13 @@ export default async function AsetPage({ searchParams }: PageProps<"/aset">) {
       .limit(PER_PAGE)
       .offset((page - 1) * PER_PAGE);
     const roomOpts = await tx.select({ id: rooms.id, name: rooms.name }).from(rooms).orderBy(asc(rooms.name));
-    return { sum, rows, roomOpts };
+    const years = (await tx.selectDistinct({ y: sql<number>`extract(year from ${assets.acqDate})::int` }).from(assets).where(ne(assets.status, "DIHAPUS"))).map((r) => r.y).sort((a, b) => b - a);
+    const [st] = await tx.select({ upb: schoolSettings.kodeUpb }).from(schoolSettings);
+    const funds = await tx.select({ name: fundingSources.name, upb: fundingSources.kodeUpb }).from(fundingSources).where(isNotNull(fundingSources.kodeUpb));
+    const upbs = [{ code: st.upb, name: "bawaan / dana lain" }, ...funds.map((f) => ({ code: f.upb!, name: f.name }))]
+      .filter((u, i, all) => all.findIndex((x) => x.code === u.code) === i)
+      .sort((a, b) => a.code.localeCompare(b.code));
+    return { sum, rows, roomOpts, years, upbs };
   });
   const pages = Math.ceil(data.sum.n / PER_PAGE);
   const qs = (o: Record<string, string>) => `?${new URLSearchParams({ ...Object.fromEntries(Object.entries({ q, ruang, kondisi, kib, jenis, batch }).filter(([, v]) => v)), ...o })}`;
@@ -106,6 +112,23 @@ export default async function AsetPage({ searchParams }: PageProps<"/aset">) {
         </form>
         {canEdit && <Link href="/aset/baru" className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800">+ Catat aset</Link>}
       </div>
+      {canEdit && (
+        <details className="mb-4 rounded-lg border border-slate-200 bg-white text-sm">
+          <summary className="cursor-pointer px-4 py-2 font-medium">Cetak label kode barang (gaya SIMDA)</summary>
+          <form action="/cetak/label" target="_blank" className="flex flex-wrap items-end gap-2 px-4 pb-3">
+            <label className="space-y-1"><span className="block text-slate-600">Tahun perolehan</span>
+              <select name="tahun" className="rounded-md border border-slate-300 bg-white px-2 py-1.5"><option value="">Semua</option>{data.years.map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
+            <label className="space-y-1"><span className="block text-slate-600">Kelompok barang</span>
+              <select name="gol" className="rounded-md border border-slate-300 bg-white px-2 py-1.5"><option value="">Semua</option>{Object.entries(KIB_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+            <label className="space-y-1"><span className="block text-slate-600">UPB</span>
+              <select name="upb" className="rounded-md border border-slate-300 bg-white px-2 py-1.5"><option value="">Semua</option>{data.upbs.map((u) => <option key={u.code} value={u.code}>{u.code} — {u.name}</option>)}</select></label>
+            <label className="space-y-1"><span className="block text-slate-600">Ruangan</span>
+              <select name="ruang" className="rounded-md border border-slate-300 bg-white px-2 py-1.5"><option value="">Semua</option>{data.roomOpts.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
+            <button className="rounded-md bg-teal-700 px-4 py-1.5 font-medium text-white">Pratinjau & cetak</button>
+            <span className="text-xs text-slate-500">QR & logo diatur di <Link href="/pengaturan/kode-bmd" className="underline">Penyiapan › Kode lokasi</Link>.</span>
+          </form>
+        </details>
+      )}
       <AssetTable rows={data.rows} rooms={data.roomOpts} canEdit={canEdit} today={todayWita()} />
       {pages > 1 && (
         <div className="mt-4 flex items-center gap-4 text-sm">

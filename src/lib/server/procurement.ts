@@ -1,4 +1,5 @@
 import "server-only";
+import { kodeBarangInternal } from "@/lib/assets-shared";
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { Tx } from "@/db";
 import { procurementLines, procurements, proposalLines, proposals, rooms, supplyItems } from "@/db/schema";
@@ -55,6 +56,7 @@ export async function saveProcurementDraft(tx: Tx, s: SchoolSession, input: Proc
   const lines = input.lines.map((l, i) => {
     const q = dec(l.qty, `Jumlah baris ${i + 1}`);
     if (q <= 0n) throw new UserError(`Jumlah baris ${i + 1} harus lebih dari 0`);
+    if (l.bmdCode) l.bmdCode = kodeBarangInternal(l.bmdCode);
     if (l.kind === "ASET" && !/^1\.[35]\./.test(l.bmdCode ?? "")) throw new UserError(`Baris ${i + 1}: pilih kode barang aset`);
     if (l.proposalLineId) {
       const r = remaining.find((x) => x.id === l.proposalLineId);

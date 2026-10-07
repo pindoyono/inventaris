@@ -74,10 +74,15 @@ export const ENTITIES = {
   "sumber-dana": {
     title: "Sumber Dana",
     singular: "sumber dana",
-    desc: "Sumber perolehan barang. BOSP mengikuti Permendikdasmen 8/2026.",
+    desc: "Sumber perolehan barang. BOSP mengikuti Permendikdasmen 8/2026. Kode UPB menentukan UPB pada kode register (sama dengan SIMDA BMD); sumber dana tanpa kode UPB — mis. komite, hibah/sumbangan — masuk UPB bawaan (Penyiapan › Kode lokasi).",
     fields: [
       { name: "code", label: "Kode", type: "text", required: true, max: 30, list: true, pattern: { re: "^[A-Z0-9_]+$", message: "Huruf besar, angka, garis bawah" } },
       nameField(),
+      {
+        name: "kodeUpb", label: "Kode UPB (SIMDA)", type: "text", max: 2, list: true,
+        pattern: { re: "^(\\d{2})?$", message: "2 angka, mis. 02 (atau kosongkan)" },
+        hint: "Sesuai daftar UPB sekolah di SIMDA, mis. 02 Bosnas · 03 Bosprov · 04 P3D · 05 Block Grant · 06 DAK. Kosongkan untuk dana lain (komite, hibah, swadaya) → otomatis UPB bawaan 01.",
+      },
       { name: "isActive", label: "Aktif", type: "checkbox", list: true },
     ],
   },

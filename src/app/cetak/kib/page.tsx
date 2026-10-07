@@ -4,7 +4,7 @@ import { pageSchoolUser } from "@/lib/server/guard";
 import { todayWita } from "@/lib/server/ledger";
 import { loadPrintContext } from "@/lib/server/print";
 import { kibData } from "@/lib/server/reports";
-import { ACQUISITION_LABEL, KIB_ATTRS, KIB_LABEL } from "@/lib/assets-shared";
+import { ACQUISITION_LABEL, KIB_ATTRS, KIB_LABEL, kodeBarang } from "@/lib/assets-shared";
 import { fmtRp } from "@/lib/decimal";
 import { tanggalPanjang } from "@/lib/terbilang";
 import { Halaman, Identitas, Judul, Kop, KodeLokasi, kepsekCol, pengurusCol, Tabel, Ttd } from "@/components/cetak/print";
@@ -43,7 +43,7 @@ export default async function CetakKib({ searchParams }: PageProps<"/cetak/kib">
         foot={<tr className="jumlah"><td colSpan={nCols - 2} className="angka">JUMLAH ({kib.units} unit)</td><td className="angka">{fmtRp(kib.total)}</td><td /></tr>}>
         {kib.rows.map((r, i) => (
           <tr key={i}>
-            <td className="tengah">{i + 1}</td><td className="kode">{r.bmdCode}</td><td>{r.codeName}{r.name.toLowerCase() !== r.codeName.toLowerCase() ? ` (${r.name})` : ""}</td>
+            <td className="tengah">{i + 1}</td><td className="kode">{kodeBarang(r.bmdCode)}</td><td>{r.codeName}{r.name.toLowerCase() !== r.codeName.toLowerCase() ? ` (${r.name})` : ""}</td>
             <td className="kode" style={{ whiteSpace: r.regNos.includes(",") ? "normal" : "nowrap" }}>{r.regNos}</td>
             {gol === "B" && <td>{r.brand ?? "-"}</td>}
             {plain.map((a) => <td key={a.key} className="tengah">{r.attrs[a.key] ?? "-"}</td>)}

@@ -5,7 +5,7 @@ import { assets, loanLines, loans, users } from "@/db/schema";
 import { withSchool } from "@/lib/tenant";
 import { pageSchoolUser } from "@/lib/server/guard";
 import { loadPrintContext } from "@/lib/server/print";
-import { CONDITION_LABEL } from "@/lib/assets-shared";
+import { CONDITION_LABEL, kodeBarang } from "@/lib/assets-shared";
 import { tanggalPanjang } from "@/lib/terbilang";
 import { Halaman, Identitas, Judul, Kop, Tabel, Ttd } from "@/components/cetak/print";
 import { loanScope } from "@/app/(sekolah)/peminjaman/scope";
@@ -43,7 +43,7 @@ export default async function CetakPeminjaman({ params }: PageProps<"/cetak/pemi
         <tr><th>Pinjam</th><th>Kembali</th></tr></>}>
         {lines.map(({ x, a }, i) => (
           <tr key={x.id}>
-            <td className="tengah">{i + 1}</td><td className="kode">{a.bmdCode}<br />{String(a.regNo).padStart(6, "0")}</td><td>{a.name}{a.brand ? ` · ${a.brand}` : ""}</td>
+            <td className="tengah">{i + 1}</td><td className="kode">{kodeBarang(a.bmdCode)}<br />{String(a.regNo).padStart(6, "0")}</td><td>{a.name}{a.brand ? ` · ${a.brand}` : ""}</td>
             <td className="tengah">{x.conditionOut ? CONDITION_LABEL[x.conditionOut] : "-"}</td><td className="tengah">{x.conditionIn ? CONDITION_LABEL[x.conditionIn] : ""}</td>
             <td className="tengah">{x.returnedAt ? fmtD(x.returnedAt) : ""}</td><td />
           </tr>

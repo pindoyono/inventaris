@@ -95,13 +95,6 @@ export const profileSchema = z.object({
   penggunaNip: nip,
 });
 
-const digitsOrEmpty = (n: number, label: string) =>
-  z
-    .string()
-    .trim()
-    .regex(new RegExp(`^(\\d{${n}})?$`), `${label} harus ${n} digit (kosongkan bila belum tahu)`)
-    .transform((v) => (v === "" ? null : v));
-
 const rupiah = z
   .string()
   .transform((v) => v.replace(/[^\d]/g, ""))
@@ -111,10 +104,25 @@ const rupiah = z
 
 export const KIB_GOLONGAN = ["B", "C", "D", "E", "F", "ATB"] as const;
 
+/** Kode angka n digit; boleh diketik tanpa nol depan (8 → 08); kosong → null */
+const padDigits = (n: number, label: string) =>
+  z
+    .string()
+    .optional()
+    .transform((v) => (v ?? "").trim())
+    .refine((v) => v === "" || new RegExp(`^\\d{1,${n}}$`).test(v), `${label}: maksimal ${n} angka`)
+    .transform((v) => (v === "" ? null : v.padStart(n, "0")));
+
+/** Kode lokasi format SIMDA BMD (label Dinas) + pengaturan label */
 export const bmdSettingsSchema = z.object({
-  kodePengguna: digitsOrEmpty(6, "Kode pengguna barang"),
-  kodeKuasaPengguna: digitsOrEmpty(5, "Kode kuasa pengguna barang"),
-  kodeSubKuasa: z.string().trim().regex(/^\d{5}$/, "Kode sub kuasa 5 digit (00000 bila tidak ada)"),
+  kodeProvinsi: padDigits(2, "Kode provinsi"),
+  kodeKab: padDigits(2, "Kode kab/kota"),
+  kodeBidang: padDigits(2, "Kode bidang"),
+  kodeUnit: padDigits(2, "Kode unit"),
+  kodeSubUnit: padDigits(3, "Kode sub unit"),
+  kodeUpb: padDigits(2, "Kode UPB bawaan").transform((v) => v ?? "01"),
+  labelQr: z.literal("on").optional().transform(Boolean),
+  labelLogo: z.literal("on").optional().transform(Boolean),
   capDefault: rupiah,
   // Batas khusus per golongan; kosong = ikut batas umum
   ...Object.fromEntries(KIB_GOLONGAN.map((g) => [`cap_${g}`, z.string().optional()])),
