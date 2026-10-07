@@ -28,7 +28,7 @@ const SITES = [
   "https://absen.smkn2malinau.sch.id/",
 ];
 const SERVICES = ["nginx", "postgresql", "mysql", "docker", "inventaris", "e-vote", "sigw", "gaplev2", "frontend-nextjs", "php8.3-fpm", "php8.4-fpm"];
-const BACKUPS = ["inventaris-backup", "e-vote-backup", "sigw-backup"];
+const BACKUPS = ["inventaris-backup", "e-vote-backup", "sigw-backup", "backup-aplikasi"];
 
 type Problems = Record<string, string>;
 const problems: Problems = {};
@@ -72,10 +72,35 @@ function checkBackups() {
     const last = sh("systemctl", ["show", `${u}.timer`, "-P", "LastTriggerUSec"]);
     const lastEpoch = last && last !== "n/a" ? sh("date", ["-d", last.replace(/^\w{3} /, ""), "+%s"]) : "";
     const result = /Result=(\S+)/.exec(out)?.[1];
-    const stamps = [/ExecMainExitTimestamp=@(\d+)/.exec(out)?.[1], /^\d+$/.test(lastEpoch) ? lastEpoch : undefined].filter(Boolean).map(Number);
+    let stampFile = "";
+    try {
+      stampFile = readFileSync(`/var/lib/backup-status/${u}`, "utf8").trim(); // ditulis skrip backup saat sukses
+    } catch {}
+    const stamps = [/ExecMainExitTimestamp=@(\d+)/.exec(out)?.[1], /^\d+$/.test(lastEpoch) ? lastEpoch : undefined, /^\d+$/.test(stampFile) ? stampFile : undefined].filter(Boolean).map(Number);
     const t = stamps.length ? Math.max(...stamps) * 1000 : NaN;
     if (result && result !== "success") add(`backup:${u}`, `Backup ${u} terakhir gagal (${result})`);
     else if (Number.isNaN(t) || Date.now() - t > 26 * 3600_000) add(`backup:${u}`, `Backup ${u} tidak berjalan dalam 26 jam terakhir (terakhir: ${Number.isNaN(t) ? "belum pernah" : new Date(t).toLocaleString("id-ID", { timeZone: "Asia/Makassar" })})`);
+  }
+}
+
+/** Tugas berkala (bukan harian): cukup periksa hasil terakhirnya */
+const PERIODIC = ["uji-pulih"];
+/** Salinan ke luar server: diperiksa sejak pertama kali berhasil (berkas status ditulis skrip backup-offsite) */
+function checkOffsite() {
+  let stamp = "";
+  try {
+    stamp = readFileSync("/var/lib/backup-status/backup-offsite", "utf8").trim();
+  } catch {
+    return; // belum dikonfigurasi
+  }
+  if (!/^\d+$/.test(stamp) || Date.now() - Number(stamp) * 1000 > 26 * 3600_000)
+    add("backup:offsite", `Salinan backup ke luar server tidak berhasil dalam 26 jam terakhir — periksa: journalctl -u backup-offsite`);
+}
+
+function checkPeriodic() {
+  for (const u of PERIODIC) {
+    const result = sh("systemctl", ["show", `${u}.service`, "-P", "Result"]);
+    if (result && result !== "success") add(`berkala:${u}`, `Tugas ${u} terakhir gagal (${result}) — periksa: journalctl -u ${u}`);
   }
 }
 
@@ -136,6 +161,8 @@ function load(): State {
 await Promise.all([checkSites(), checkCerts(), checkOutbox()]);
 checkServices();
 checkBackups();
+checkPeriodic();
+checkOffsite();
 checkDisk();
 checkAppErrors();
 
