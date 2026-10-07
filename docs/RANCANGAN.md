@@ -421,3 +421,4 @@ Bersih & minimalis (off-white, slate, emerald), mobile-first untuk Petugas (scan
     - 8 kode pemulihan disimpan sebagai hash bcrypt;
     - login dua langkah memakai tantangan bertanda tangan HMAC (5 menit) di cookie httpOnly, tanpa menyimpan kata sandi;
     - galat login (`CredentialsSignin`) tidak lagi dicatat ke log.
+- Deploy (7 Okt 2026): Next 16.3 menulis "route cache" rute statis (manifest, favicon) ke `.next/server/route-cache` saat berjalan, sementara layanan hanya boleh menulis di `/var/lib/inventaris`. Akibatnya muncul galat "Failed to update prerender cache … ENOENT". `inventaris-update` (salinan: `docs/ops/inventaris-update.sh`) kini membuat symlink `.next/server/route-cache` → `/var/lib/inventaris/cache/route-cache`, mengosongkannya tiap deploy, lalu memanggil rute statis dan **menggagalkan deploy** bila log memuat galat tulis ke `.next`.
