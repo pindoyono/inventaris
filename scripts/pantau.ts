@@ -68,11 +68,14 @@ function checkServices() {
 function checkBackups() {
   for (const u of BACKUPS) {
     const out = sh("systemctl", ["show", `${u}.service`, "--timestamp=unix", "-p", "Result", "-p", "ExecMainExitTimestamp"]);
+    // Setelah reboot systemd lupa waktu layanan oneshot; waktu picu timer (Persistent=true) tetap tersimpan
+    const last = sh("systemctl", ["show", `${u}.timer`, "-P", "LastTriggerUSec"]);
+    const lastEpoch = last && last !== "n/a" ? sh("date", ["-d", last.replace(/^\w{3} /, ""), "+%s"]) : "";
     const result = /Result=(\S+)/.exec(out)?.[1];
-    const ts = /ExecMainExitTimestamp=@(\d+)/.exec(out)?.[1];
-    const t = ts ? Number(ts) * 1000 : NaN;
+    const stamps = [/ExecMainExitTimestamp=@(\d+)/.exec(out)?.[1], /^\d+$/.test(lastEpoch) ? lastEpoch : undefined].filter(Boolean).map(Number);
+    const t = stamps.length ? Math.max(...stamps) * 1000 : NaN;
     if (result && result !== "success") add(`backup:${u}`, `Backup ${u} terakhir gagal (${result})`);
-    else if (!ts || Number.isNaN(t) || Date.now() - t > 26 * 3600_000) add(`backup:${u}`, `Backup ${u} tidak berjalan dalam 26 jam terakhir (terakhir: ${ts ? new Date(t).toLocaleString("id-ID", { timeZone: "Asia/Makassar" }) : "belum pernah"})`);
+    else if (Number.isNaN(t) || Date.now() - t > 26 * 3600_000) add(`backup:${u}`, `Backup ${u} tidak berjalan dalam 26 jam terakhir (terakhir: ${Number.isNaN(t) ? "belum pernah" : new Date(t).toLocaleString("id-ID", { timeZone: "Asia/Makassar" })})`);
   }
 }
 
@@ -85,7 +88,7 @@ function checkDisk() {
 /** Galat aplikasi Inventaris di log 5 menit terakhir (tanpa isi variabel lingkungan) */
 function checkAppErrors() {
   const log = sh("journalctl", ["-u", "inventaris", "--since", "-5min", "--no-pager", "-o", "cat"]);
-  const errs = log.split("\n").filter((l) => /⨯|Error:|Unhandled|FATAL/i.test(l) && !/\.env\.local|exited with code 143/.test(l));
+  const errs = log.split("\n").filter((l) => /⨯|Error:|Unhandled|FATAL/i.test(l) && !/\.env\.local|exited with code 143|Server Reference ID|Failed to find Server Action/.test(l)); // POST sampah dari bot bukan galat aplikasi
   if (errs.length) add("app:inventaris", `${errs.length} galat di log Inventaris (5 menit terakhir), contoh:\n${errs.slice(0, 3).map((l) => "  " + l.slice(0, 200)).join("\n")}`);
 }
 
