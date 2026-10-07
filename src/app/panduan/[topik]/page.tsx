@@ -3,10 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TOPICS, topicBySlug } from "../topics";
 
-export function generateStaticParams() {
-  return TOPICS.map((t) => ({ topik: t.slug }));
-}
-
 export async function generateMetadata({ params }: PageProps<"/panduan/[topik]">): Promise<Metadata> {
   const t = topicBySlug((await params).topik);
   return { title: t?.title ?? "Panduan" };

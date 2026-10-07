@@ -1,0 +1,77 @@
+# Uji otomatis setiap push/PR: typecheck, lint, tes (PostgreSQL + RLS seperti produksi), dan build.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  uji:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Kredensial khusus CI (database sekali pakai di runner), bukan kredensial server
+      DATABASE_URL_OWNER: postgres://inventaris_owner:owner_ci@localhost:5432/inventaris_test
+      TEST_DATABASE_URL: postgres://inventaris_app:app_ci@localhost:5432/inventaris_test
+      TEST_DATABASE_URL_OWNER: postgres://inventaris_owner:owner_ci@localhost:5432/inventaris_test
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Pasang dependensi
+        run: bun install --frozen-lockfile --registry=https://registry.npmjs.org/
+
+      - name: Siapkan database (peran pemilik & aplikasi tanpa BYPASSRLS)
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE inventaris_owner LOGIN PASSWORD 'owner_ci';
+          CREATE ROLE inventaris_app LOGIN PASSWORD 'app_ci' NOBYPASSRLS;
+          CREATE DATABASE inventaris_test OWNER inventaris_owner;
+          SQL
+          psql -h localhost -U postgres -d inventaris_test -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto"
+
+      - name: Migrasi & data referensi
+        run: |
+          bun x drizzle-kit migrate
+          bun scripts/seed-referensi.ts
+
+      - name: Typecheck
+        run: |
+          bun x next typegen
+          bun x tsc --noEmit
+
+      - name: Lint
+        run: bun x eslint src
+
+      - name: Tes
+        run: bun test
+
+      - name: Build
+        env:
+          AUTH_SECRET: ci-bukan-rahasia-hanya-untuk-build-000000
+          DATABASE_URL: postgres://inventaris_app:app_ci@localhost:5432/inventaris_test
+          FILES_DIR: /tmp/inventaris-files
+        run: bun x next build
