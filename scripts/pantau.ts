@@ -15,6 +15,7 @@ const REMIND_MS = 6 * 3600_000;
 /** Situs yang dipantau (status < 500 dianggap hidup; 3xx/4xx wajar untuk halaman yang butuh login) */
 const SITES = [
   "https://inventaris.ankdev.id/login",
+  "https://rpp.ankdev.id/",
   "https://ankdev.id/",
   "https://e-vote.ankdev.id/",
   "https://guruwali.ankdev.id/",
