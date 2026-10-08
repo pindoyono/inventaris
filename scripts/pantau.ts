@@ -27,7 +27,7 @@ const SITES = [
   "https://front.smkn2malinau.sch.id/",
   "https://absen.smkn2malinau.sch.id/",
 ];
-const SERVICES = ["nginx", "postgresql", "mysql", "docker", "inventaris", "e-vote", "sigw", "gaplev2", "frontend-nextjs", "php8.3-fpm", "php8.4-fpm"];
+const SERVICES = ["nginx", "postgresql", "mysql", "docker", "inventaris", "rpp", "e-vote", "sigw", "gaplev2", "frontend-nextjs", "php8.3-fpm", "php8.4-fpm"];
 const BACKUPS = ["inventaris-backup", "e-vote-backup", "sigw-backup", "backup-aplikasi"];
 
 type Problems = Record<string, string>;
